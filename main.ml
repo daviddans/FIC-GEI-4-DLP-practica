@@ -8,7 +8,6 @@ open Lexer;;
 let read_until_terminator () =
   let buf = Buffer.create 128 in
   let rec aux () =
-    print_string ">> "; flush stdout;
     let line = read_line () in
     match String.index_opt line ';' with
     | Some i when i + 1 < String.length line && line.[i+1] = ';' ->
@@ -26,6 +25,7 @@ let rec top_level_loop () =
   print_endline "Evaluator of lambda expressions...";
   let rec loop ctx =
     try
+      print_string ">> "; flush stdout;
       let input = read_until_terminator () in
       let tm = s token (from_string input) in
       let tyTm = typeof ctx tm in
