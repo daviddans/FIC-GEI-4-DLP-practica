@@ -31,4 +31,3 @@ rule token = parse
                 { IDV (Lexing.lexeme lexbuf) }
   | eof         { EOF }
   | _           { raise Lexical_error }
-

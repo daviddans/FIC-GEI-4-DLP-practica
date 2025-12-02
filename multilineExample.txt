@@ -1,0 +1,7 @@
+let fix = 
+lambda f.(lambda x. f (lambda y. x x y)) 
+(lambda x. f (lambda y. x x y)) 
+in let sumaux = lambda f. (lambda n. (lambda m. if (iszero n) 
+then m else succ (f (pred n) m))) in let sum = fix sumaux in let prodaux = lambda f. (lambda n. (lambda m. if (iszero m) 
+then 0
+else sum n (f n (pred m)))) in let prod = fix prodaux in prod 12 5 ;;

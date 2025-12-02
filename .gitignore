@@ -1,0 +1,25 @@
+# Archivos generados por OCaml compiler
+*.cmo
+*.cmi
+*.cmx
+*.o
+*.a
+
+# Archivos generados por ocamlyacc
+parser.ml
+parser.mli
+
+# Archivos generados por ocamllex
+lexer.ml
+
+# Binarios
+top
+main
+*.exe
+
+# Archivos de respaldo
+*~
+*.bak
+
+#Make
+Makefile
