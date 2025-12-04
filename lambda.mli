@@ -3,6 +3,7 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
+  | TyString  (*type string*)
 ;;
 
 type context =
@@ -21,6 +22,8 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
+  | TmString of string (*type string*)
+  | TmConcat of term * term (*operacion de concatenación*)
 ;;
 
 val emptyctx : context;;

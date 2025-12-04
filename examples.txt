@@ -16,5 +16,19 @@ let id = Lx.x in id 3 ;;
 let id_bool = L x:Bool. x in id_bool true ;;
 let id_nat = L x:Nat. x in id_nat 5 ;;
 let x = 5 in let id_nat = L x:Nat. x in id_nat x ;;
+
 let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y)) in let sumaux = lambda f. (lambda n. (lambda m. if (iszero n) then m else succ (f (pred n) m))) in let sum = fix sumaux in sum 21 34 ;;
+
 let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y)) in let sumaux = lambda f. (lambda n. (lambda m. if (iszero n) then m else succ (f (pred n) m))) in let sum = fix sumaux in let prodaux = lambda f. (lambda n. (lambda m. if (iszero m) then 0 else sum n (f n (pred m)))) in let prod = fix prodaux in prod 12 5 ;;
+
+let fix = lambda f.(lambda x. f (lambda y. x x y)) (lambda x. f (lambda y. x x y)) in
+let sumaux =
+lambda f. (lambda n. (lambda m. if (iszero n) then m else succ (f (pred n) m))) in
+let sum = fix sumaux in
+sum 21 34;;
+"gola";;
+concat "hola" "mundo";;
+let xsdd = concat "func" "tongo";;
+let a = "cojon";;
+let d = 5;;
+"hola" ^ "mundo";;

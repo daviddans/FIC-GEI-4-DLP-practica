@@ -5,6 +5,7 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
+  | TyString  (*type string*)
 ;;
 
 type context =
@@ -23,6 +24,8 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
+  | TmString of string (*type string*)
+  | TmConcat of term * term (*operacion de concatenación*)
 ;;
 
 
@@ -50,6 +53,8 @@ let rec string_of_ty ty = match ty with
       "Nat"
   | TyArr (ty1, ty2) ->
       "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
+  | TyString ->        (* Para tipo String *)
+      "String"
 ;;
 
 exception Type_error of string
@@ -64,7 +69,17 @@ let rec typeof ctx tm = match tm with
   | TmFalse ->
       TyBool
 
+  | TmString _ ->      
+      TyString
+
+  | TmConcat (t1, t2) -> (* <--- NUEVO *)
+      if typeof ctx t1 = TyString then
+        if typeof ctx t2 = TyString then TyString
+        else raise (Type_error "second argument of concat is not a string")
+      else raise (Type_error "first argument of concat is not a string")
+
     (* T-If *)
+
   | TmIf (t1, t2, t3) ->
       if typeof ctx t1 = TyBool then
         let tyT2 = typeof ctx t2 in
@@ -152,6 +167,10 @@ let rec string_of_term = function
       "(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
   | TmLetIn (s, t1, t2) ->
       "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
+  | TmString s ->
+      "\"" ^ s ^ "\""   (* Ponemos comillas escapadas alrededor *)
+  | TmConcat (t1, t2) ->
+      "(" ^ string_of_term t1 ^ " ^ " ^ string_of_term t2 ^ ")"
 ;;
 
 let rec ldif l1 l2 = match l1 with
@@ -187,6 +206,10 @@ let rec free_vars tm = match tm with
       lunion (free_vars t1) (free_vars t2)
   | TmLetIn (s, t1, t2) ->
       lunion (ldif (free_vars t2) [s]) (free_vars t1)
+  | TmString _ ->
+      []
+  | TmConcat (t1, t2) ->
+      lunion (free_vars t1) (free_vars t2)
 ;;
 
 let rec fresh_name x l =
@@ -226,6 +249,10 @@ let rec subst x s tm = match tm with
            then TmLetIn (y, subst x s t1, subst x s t2)
            else let z = fresh_name y (free_vars t2 @ fvs) in
                 TmLetIn (z, subst x s t1, subst x s (subst y (TmVar z) t2))
+  | TmString s ->
+      TmString s
+  | TmConcat (t1, t2) ->
+      TmConcat (subst x s t1, subst x s t2)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -238,6 +265,7 @@ let rec isval tm = match tm with
     TmTrue  -> true
   | TmFalse -> true
   | TmAbs _ -> true
+  | TmString _ -> true
   | t when isnumericval t -> true
   | _ -> false
 ;;
@@ -312,6 +340,20 @@ let rec eval1 tm = match tm with
   | TmLetIn(x, t1, t2) ->
       let t1' = eval1 t1 in
       TmLetIn (x, t1', t2)
+
+  (* E-ConcatString: La operación real *)
+  | TmConcat (TmString s1, TmString s2) ->
+      TmString (s1 ^ s2)
+
+    (* E-Concat2: Evaluar segundo argumento *)
+  | TmConcat (v1, t2) when isval v1 ->
+      let t2' = eval1 t2 in
+      TmConcat (v1, t2')
+
+    (* E-Concat1: Evaluar primer argumento *)
+  | TmConcat (t1, t2) ->
+      let t1' = eval1 t1 in
+      TmConcat (t1', t2)
 
   | _ ->
       raise NoRuleApplies
