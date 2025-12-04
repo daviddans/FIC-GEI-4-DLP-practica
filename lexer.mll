@@ -22,6 +22,12 @@ rule token = parse
   | "Nat"       { NAT }
   | '('         { LPAREN }
   | ')'         { RPAREN }
+
+  (* tokens for tuples *)
+  | '{'         { LBRACE }   
+  | '}'         { RBRACE }   
+  | ','         { COMMA }    
+
   | '.'         { DOT }
   | '='         { EQ }
   | ':'         { COLON }

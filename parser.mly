@@ -19,6 +19,10 @@
 %token STRING            
 %token CONCAT
 
+%token LBRACE
+%token RBRACE
+%token COMMA
+
 
 %token LPAREN
 %token RPAREN
@@ -64,6 +68,8 @@ appTerm :
       { TmApp ($1, $2) }
   | atomicTerm CONCAT atomicTerm   
       { TmConcat ($1, $3) }
+  | appTerm DOT INTV
+      { TmProj ($1, $3) }
 
 atomicTerm :
     LPAREN term RPAREN
@@ -81,6 +87,8 @@ atomicTerm :
         in f $1 }
   | STRINGV           
       { TmString $1 }
+  | LBRACE tupleTerm RBRACE
+      { TmTuple $2 }
 
 ty :
     atomicTy
@@ -97,4 +105,19 @@ atomicTy :
       { TyNat }
   | STRING          
       { TyString }
+  | LBRACE tupleType RBRACE
+      { TyTuple $2 }
+
+
+tupleType :
+    ty
+      { [$1] }
+  | ty COMMA tupleType
+      { $1 :: $3 }
+
+tupleTerm :
+    term
+      { [$1] }
+  | term COMMA tupleTerm
+      { $1 :: $3 }
 

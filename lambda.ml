@@ -5,7 +5,8 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
-  | TyString  (*type string*)
+  | TyString           (*type string*)
+  | TyTuple of ty list (*type tuple*)
 ;;
 
 type context =
@@ -24,8 +25,10 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
-  | TmString of string (*type string*)
-  | TmConcat of term * term (*concat operator*)
+  | TmString of string        (*type string*)
+  | TmConcat of term * term   (*concat operator*)
+  | TmTuple of term list      (*term for tuples*)
+  | TmProj of term * int      (*term for projections*)
 ;;
 
 
@@ -68,6 +71,10 @@ let string_of_ty ty =
         let right = aux 0 t2 in
         let s = left ^ " -> " ^ right in
         if nest > 0 then "(" ^ s ^ ")" else s
+    (* case for Tuple Types *)
+    | TyTuple l ->
+        let s = String.concat ", " (List.map (aux 0) l) in
+        "{" ^ s ^ "}"
   in
   aux 0 ty
 ;;
@@ -137,6 +144,23 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       let ctx' = addbinding ctx x tyT1 in
       typeof ctx' t2
+
+    (* T-Tuple: Check type of each element *)
+    | TmTuple l ->
+        TyTuple (List.map (typeof ctx) l)
+
+    (* T-Proj: Check that subterm is a tuple and index is within bounds *)
+    | TmProj (t, i) ->
+        (match typeof ctx t with
+         | TyTuple fieldTys ->
+             (* Verificamos que el índice sea válido (1-based index) *)
+             if i < 1 || i > List.length fieldTys then
+               raise (Type_error ("projection index " ^ string_of_int i ^ " out of bounds"))
+             else
+               (* List.nth usa índice 0, por eso restamos 1 *)
+               List.nth fieldTys (i - 1)
+         | _ -> 
+             raise (Type_error "argument of projection is not a tuple"))
 ;;
 
 (* TERMS MANAGEMENT (EVALUATION) *)
@@ -181,6 +205,13 @@ let string_of_term tm =
 
       | TmConcat (t1, t2) ->
           aux 1 t1 ^ " ^ " ^ aux 1 t2
+
+      (*cases for Tuple Terms and Projections *)
+      | TmTuple l ->
+          let s = String.concat ", " (List.map (aux 0) l) in
+          "{" ^ s ^ "}"
+      | TmProj (t, i) ->
+          aux 2 t ^ "." ^ string_of_int i
     in
     (* add parentheses only when nested *)
     if nest > 0 then "(" ^ s ^ ")" else s
@@ -224,6 +255,11 @@ let rec free_vars tm = match tm with
       []
   | TmConcat (t1, t2) ->
       lunion (free_vars t1) (free_vars t2)
+  (*Cases for Tuples free vars *)
+  | TmTuple l ->
+      List.fold_left (fun acc t -> lunion acc (free_vars t)) [] l
+  | TmProj (t, _) ->
+      free_vars t
 ;;
 
 let rec fresh_name x l =
@@ -267,6 +303,11 @@ let rec subst x s tm = match tm with
       TmString s
   | TmConcat (t1, t2) ->
       TmConcat (subst x s t1, subst x s t2)
+  (* Cases for Substitution in Tuples *)
+  | TmTuple l ->
+      TmTuple (List.map (subst x s) l)
+  | TmProj (t, i) ->
+      TmProj (subst x s t, i)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -281,6 +322,8 @@ let rec isval tm = match tm with
   | TmAbs _ -> true
   | TmString _ -> true
   | t when isnumericval t -> true
+  (* Case: A tuple is a value if all its elements are values *)
+  | TmTuple l -> List.for_all isval l
   | _ -> false
 ;;
 
@@ -355,7 +398,7 @@ let rec eval1 tm = match tm with
       let t1' = eval1 t1 in
       TmLetIn (x, t1', t2)
 
-  (* E-ConcatString: Real op*)
+    (* E-ConcatString: Real op*)
   | TmConcat (TmString s1, TmString s2) ->
       TmString (s1 ^ s2)
 
@@ -368,6 +411,30 @@ let rec eval1 tm = match tm with
   | TmConcat (t1, t2) ->
       let t1' = eval1 t1 in
       TmConcat (t1', t2)
+
+  (* E-ProjTuple: Extract component from a fully evaluated tuple *)
+  | TmProj (TmTuple fields, i) when isval (TmTuple fields) ->
+        (* OCaml usa índices desde 0, el usuario usa desde 1 *)
+        (try List.nth fields (i - 1)
+         with Failure _ | Invalid_argument _ -> raise NoRuleApplies)
+
+    (* E-Proj: Congruence rule for projection *)
+    | TmProj (t1, i) ->
+        let t1' = eval1 t1 in
+        TmProj (t1', i)
+
+    (* E-Tuple: Evaluate components from left to right *)
+    | TmTuple l ->
+        let rec eval_fields = function
+          | [] -> raise NoRuleApplies (* All are values *)
+          | t :: rest -> 
+              if isval t then 
+                t :: eval_fields rest (* Keep evaluated value and continue *)
+              else 
+                let t' = eval1 t in (* Reduce the first non-value *)
+                t' :: rest
+        in
+        TmTuple (eval_fields l)
 
   | _ ->
       raise NoRuleApplies

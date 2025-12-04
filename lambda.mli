@@ -3,7 +3,8 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
-  | TyString  (*type string*)
+  | TyString           (*type string*)
+  | TyTuple of ty list (*type tuple*)
 ;;
 
 type context =
@@ -22,8 +23,10 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
-  | TmString of string (*type string*)
-  | TmConcat of term * term (*concat operator *)
+  | TmString of string        (*term string*)
+  | TmConcat of term * term   (*concat operator *)
+  | TmTuple of term list      (*term for tuples*)
+  | TmProj of term * int      (*term for projections*)
 ;;
 
 val emptyctx : context;;
