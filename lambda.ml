@@ -25,7 +25,7 @@ type term =
   | TmApp of term * term
   | TmLetIn of string * term * term
   | TmString of string (*type string*)
-  | TmConcat of term * term (*operacion de concatenación*)
+  | TmConcat of term * term (*concat operator*)
 ;;
 
 
@@ -53,7 +53,7 @@ let rec string_of_ty ty = match ty with
       "Nat"
   | TyArr (ty1, ty2) ->
       "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
-  | TyString ->        (* Para tipo String *)
+  | TyString ->        (* type string match *)
       "String"
 ;;
 
@@ -72,7 +72,7 @@ let rec typeof ctx tm = match tm with
   | TmString _ ->      
       TyString
 
-  | TmConcat (t1, t2) -> (* <--- NUEVO *)
+  | TmConcat (t1, t2) -> (* <--- new*)
       if typeof ctx t1 = TyString then
         if typeof ctx t2 = TyString then TyString
         else raise (Type_error "second argument of concat is not a string")
@@ -168,7 +168,7 @@ let rec string_of_term = function
   | TmLetIn (s, t1, t2) ->
       "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
   | TmString s ->
-      "\"" ^ s ^ "\""   (* Ponemos comillas escapadas alrededor *)
+      "\"" ^ s ^ "\""   (* Scaped quoted surounding *)
   | TmConcat (t1, t2) ->
       "(" ^ string_of_term t1 ^ " ^ " ^ string_of_term t2 ^ ")"
 ;;
@@ -341,16 +341,16 @@ let rec eval1 tm = match tm with
       let t1' = eval1 t1 in
       TmLetIn (x, t1', t2)
 
-  (* E-ConcatString: La operación real *)
+  (* E-ConcatString: Real op*)
   | TmConcat (TmString s1, TmString s2) ->
       TmString (s1 ^ s2)
 
-    (* E-Concat2: Evaluar segundo argumento *)
+    (* E-Concat2: second argument eval*)
   | TmConcat (v1, t2) when isval v1 ->
       let t2' = eval1 t2 in
       TmConcat (v1, t2')
 
-    (* E-Concat1: Evaluar primer argumento *)
+    (* E-Concat1: first argument eval *)
   | TmConcat (t1, t2) ->
       let t1' = eval1 t1 in
       TmConcat (t1', t2)

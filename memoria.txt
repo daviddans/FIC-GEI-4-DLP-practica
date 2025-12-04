@@ -1,0 +1,15 @@
+Practicum report of DLP - Miguel Balea - David  Dans Villares
+
+This practice consists in implement a lambda calculus interpret in Ocaml.
+
+User Guide.
+Here we describe how the new interpret functions work.
+
+
+Technical Guide.
+Here we describe the changes made to implement the new funtionalities.
+
+1.1 Multi-line-parsing. The main.ml  was modified to add the readline() output to a buffer, and keep reading lines until
+    a ;; is found. Then the lexical parser is called over this new buffer. As the new buffer could now contain \n we added this 
+    chararcter in the lexical rule that already ignored spaces and tabs.
+

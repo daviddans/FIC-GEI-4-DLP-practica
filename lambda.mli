@@ -23,7 +23,7 @@ type term =
   | TmApp of term * term
   | TmLetIn of string * term * term
   | TmString of string (*type string*)
-  | TmConcat of term * term (*operacion de concatenación*)
+  | TmConcat of term * term (*concat operator *)
 ;;
 
 val emptyctx : context;;

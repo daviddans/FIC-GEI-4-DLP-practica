@@ -28,7 +28,7 @@ let sum = fix sumaux in
 sum 21 34;;
 "gola";;
 concat "hola" "mundo";;
-let xsdd = concat "func" "tongo";;
-let a = "cojon";;
-let d = 5;;
+let xsdd = concat "func" "tongo" in xsdd;;
+let a = "cojon" in a;;
+let d = 5 in d ;;
 "hola" ^ "mundo";;
