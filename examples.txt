@@ -40,3 +40,10 @@ let tup = {"hola", 4, false} in tup;;
 {iszero 0, succ 4};;
 let t = {5, false, 8} in t.2;;
 let p = { {1, 2}, 3 } in p.1.2;;
+
+{x=1, y=true};;
+{a=succ 0, b=false}.a;;
+{val = iszero 0, num = pred 5};;
+{x=1}.y;;
+{x=1, y=true}.y;;
+

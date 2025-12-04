@@ -5,6 +5,7 @@ type ty =
   | TyArr of ty * ty
   | TyString           (*type string*)
   | TyTuple of ty list (*type tuple*)
+  | TyRecord of (string * ty) list  (*type record*)
 ;;
 
 type context =
@@ -27,6 +28,8 @@ type term =
   | TmConcat of term * term   (*concat operator *)
   | TmTuple of term list      (*term for tuples*)
   | TmProj of term * int      (*term for projections*)
+  | TmRecord of (string * term) list  (* pair list (tag, value) *)
+  | TmProjVar of term * string       (* projection for tags (string) *)
 ;;
 
 val emptyctx : context;;

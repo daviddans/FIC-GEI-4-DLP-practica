@@ -70,6 +70,9 @@ appTerm :
       { TmConcat ($1, $3) }
   | appTerm DOT INTV
       { TmProj ($1, $3) }
+  | appTerm DOT IDV
+      { TmProjVar ($1, $3) }
+    
 
 atomicTerm :
     LPAREN term RPAREN
@@ -87,6 +90,8 @@ atomicTerm :
         in f $1 }
   | STRINGV           
       { TmString $1 }
+  | LBRACE fields RBRACE
+      { TmRecord $2 }
   | LBRACE tupleTerm RBRACE
       { TmTuple $2 }
 
@@ -107,6 +112,8 @@ atomicTy :
       { TyString }
   | LBRACE tupleType RBRACE
       { TyTuple $2 }
+  | LBRACE field_types RBRACE
+      { TyRecord $2 }
 
 
 tupleType :
@@ -121,3 +128,22 @@ tupleTerm :
   | term COMMA tupleTerm
       { $1 :: $3 }
 
+field_types :
+  | { [] }
+  | ne_field_types { $1 }
+
+ne_field_types :
+  | IDV COLON ty 
+      { [($1, $3)] }
+  | IDV COLON ty COMMA ne_field_types 
+      { ($1, $3) :: $5 }
+
+fields :
+  | /* vacío */ { [] }
+  | ne_fields { $1 }
+
+ne_fields :
+  | IDV EQ term 
+      { [($1, $3)] }
+  | IDV EQ term COMMA ne_fields 
+      { ($1, $3) :: $5 }

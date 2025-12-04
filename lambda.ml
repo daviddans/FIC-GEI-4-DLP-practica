@@ -7,6 +7,7 @@ type ty =
   | TyArr of ty * ty
   | TyString           (*type string*)
   | TyTuple of ty list (*type tuple*)
+  | TyRecord of (string * ty) list  (*type record*)
 ;;
 
 type context =
@@ -29,6 +30,8 @@ type term =
   | TmConcat of term * term   (*concat operator*)
   | TmTuple of term list      (*term for tuples*)
   | TmProj of term * int      (*term for projections*)
+  | TmRecord of (string * term) list  (* pair list (tag, value) *)
+  | TmProjVar of term * string       (* projection for tags (string) *)
 ;;
 
 
@@ -75,6 +78,10 @@ let string_of_ty ty =
     | TyTuple l ->
         let s = String.concat ", " (List.map (aux 0) l) in
         "{" ^ s ^ "}"
+    (* Case for Record Types*)
+    | TyRecord fields ->
+        let f (l, t) = l ^ ":" ^ aux 0 t in
+        "{" ^ String.concat ", " (List.map f fields) ^ "}"
   in
   aux 0 ty
 ;;
@@ -146,11 +153,11 @@ let rec typeof ctx tm = match tm with
       typeof ctx' t2
 
     (* T-Tuple: Check type of each element *)
-    | TmTuple l ->
+  | TmTuple l ->
         TyTuple (List.map (typeof ctx) l)
 
     (* T-Proj: Check that subterm is a tuple and index is within bounds *)
-    | TmProj (t, i) ->
+  | TmProj (t, i) ->
         (match typeof ctx t with
          | TyTuple fieldTys ->
              (* Verificamos que el índice sea válido (1-based index) *)
@@ -161,6 +168,20 @@ let rec typeof ctx tm = match tm with
                List.nth fieldTys (i - 1)
          | _ -> 
              raise (Type_error "argument of projection is not a tuple"))
+   (* T-Record: *)
+  | TmRecord fields ->
+        let field_tys = List.map (fun (li, ti) -> (li, typeof ctx ti)) fields in
+        TyRecord field_tys
+
+    (* T-ProjVar:  *)
+  | TmProjVar (t, l) ->
+        (match typeof ctx t with
+         | TyRecord field_tys ->
+             (try List.assoc l field_tys
+              with Not_found -> raise (Type_error ("label " ^ l ^ " not found")))
+         | _ -> 
+             raise (Type_error "Expected record type"))  
+    
 ;;
 
 (* TERMS MANAGEMENT (EVALUATION) *)
@@ -212,6 +233,13 @@ let string_of_term tm =
           "{" ^ s ^ "}"
       | TmProj (t, i) ->
           aux 2 t ^ "." ^ string_of_int i
+        
+      (*cases for Record Terms and Projections *)    
+      | TmRecord fields ->
+          let f (l, t) = l ^ "=" ^ aux 0 t in
+          "{" ^ String.concat ", " (List.map f fields) ^ "}"
+      | TmProjVar (t, l) ->
+          aux 2 t ^ "." ^ l
     in
     (* add parentheses only when nested *)
     if nest > 0 then "(" ^ s ^ ")" else s
@@ -255,10 +283,17 @@ let rec free_vars tm = match tm with
       []
   | TmConcat (t1, t2) ->
       lunion (free_vars t1) (free_vars t2)
+
   (*Cases for Tuples free vars *)
   | TmTuple l ->
       List.fold_left (fun acc t -> lunion acc (free_vars t)) [] l
   | TmProj (t, _) ->
+      free_vars t
+
+  (*cases for Record Terms and Projections *)        
+  | TmRecord fields ->
+      List.fold_left (fun acc (_, t) -> lunion acc (free_vars t)) [] fields
+  | TmProjVar (t, _) ->
       free_vars t
 ;;
 
@@ -303,11 +338,18 @@ let rec subst x s tm = match tm with
       TmString s
   | TmConcat (t1, t2) ->
       TmConcat (subst x s t1, subst x s t2)
+
   (* Cases for Substitution in Tuples *)
   | TmTuple l ->
       TmTuple (List.map (subst x s) l)
   | TmProj (t, i) ->
       TmProj (subst x s t, i)
+  
+  (* Cases for Substitution in Records*)
+  | TmRecord fields ->
+      TmRecord (List.map (fun (l, t) -> (l, subst x s t)) fields)
+  | TmProjVar (t, l) ->
+      TmProjVar (subst x s t, l)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -324,6 +366,8 @@ let rec isval tm = match tm with
   | t when isnumericval t -> true
   (* Case: A tuple is a value if all its elements are values *)
   | TmTuple l -> List.for_all isval l
+
+  | TmRecord fields -> List.for_all (fun (_, t) -> isval t) fields
   | _ -> false
 ;;
 
@@ -419,12 +463,12 @@ let rec eval1 tm = match tm with
          with Failure _ | Invalid_argument _ -> raise NoRuleApplies)
 
     (* E-Proj: Congruence rule for projection *)
-    | TmProj (t1, i) ->
+  | TmProj (t1, i) ->
         let t1' = eval1 t1 in
         TmProj (t1', i)
 
     (* E-Tuple: Evaluate components from left to right *)
-    | TmTuple l ->
+  | TmTuple l ->
         let rec eval_fields = function
           | [] -> raise NoRuleApplies (* All are values *)
           | t :: rest -> 
@@ -435,6 +479,28 @@ let rec eval1 tm = match tm with
                 t' :: rest
         in
         TmTuple (eval_fields l)
+    (* E-ProjRecord: Extraer el valor de un campo si el registro ya es un valor *)
+  | TmProjVar (TmRecord fields, label) when isval (TmRecord fields) ->
+        (try List.assoc label fields
+         with Not_found -> raise NoRuleApplies)
+
+    (* E-ProjVar: Regla de congruencia (evaluar el término proyectado) *)
+  | TmProjVar (t1, label) ->
+        let t1' = eval1 t1 in
+        TmProjVar (t1', label)
+
+    (* E-Record: Evaluar los campos de izquierda a derecha *)
+  | TmRecord fields ->
+        let rec eval_fields = function
+          | [] -> raise NoRuleApplies (* Todos son valores *)
+          | (l, t) :: rest ->
+              if isval t then
+                (l, t) :: eval_fields rest (* Ya es valor, seguir con el siguiente *)
+              else
+                let t' = eval1 t in        (* Evaluar este campo *)
+                (l, t') :: rest
+        in
+        TmRecord (eval_fields fields)
 
   | _ ->
       raise NoRuleApplies
