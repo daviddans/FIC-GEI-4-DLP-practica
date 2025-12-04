@@ -51,10 +51,25 @@ let rec string_of_ty ty = match ty with
       "Bool"
   | TyNat ->
       "Nat"
-  | TyArr (ty1, ty2) ->
-      "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
   | TyString ->        (* type string match *)
       "String"
+  | TyArr (ty1, ty2) ->
+      "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
+;;
+
+let string_of_ty ty =
+  let rec aux nest t = (*Aux func to give proper nesting parenthesis*)
+    match t with
+    | TyBool -> "Bool"
+    | TyNat -> "Nat"
+    | TyString -> "String" 
+    | TyArr (t1, t2) ->
+        let left = aux 1 t1 in
+        let right = aux 0 t2 in
+        let s = left ^ " -> " ^ right in
+        if nest > 0 then "(" ^ s ^ ")" else s
+  in
+  aux 0 ty
 ;;
 
 exception Type_error of string
@@ -64,22 +79,19 @@ let rec typeof ctx tm = match tm with
     (* T-True *)
     TmTrue ->
       TyBool
-
     (* T-False *)
   | TmFalse ->
       TyBool
-
+    (*type string*)
   | TmString _ ->      
       TyString
-
-  | TmConcat (t1, t2) -> (* <--- new*)
+    (*type of the concat operator term*)
+  | TmConcat (t1, t2) -> 
       if typeof ctx t1 = TyString then
         if typeof ctx t2 = TyString then TyString
         else raise (Type_error "second argument of concat is not a string")
       else raise (Type_error "first argument of concat is not a string")
-
     (* T-If *)
-
   | TmIf (t1, t2, t3) ->
       if typeof ctx t1 = TyBool then
         let tyT2 = typeof ctx t2 in
@@ -87,37 +99,30 @@ let rec typeof ctx tm = match tm with
         else raise (Type_error "arms of conditional have different types")
       else
         raise (Type_error "guard of conditional not a boolean")
-
     (* T-Zero *)
   | TmZero ->
       TyNat
-
     (* T-Succ *)
   | TmSucc t1 ->
       if typeof ctx t1 = TyNat then TyNat
       else raise (Type_error "argument of succ is not a number")
-
     (* T-Pred *)
   | TmPred t1 ->
       if typeof ctx t1 = TyNat then TyNat
       else raise (Type_error "argument of pred is not a number")
-
     (* T-Iszero *)
   | TmIsZero t1 ->
       if typeof ctx t1 = TyNat then TyBool
       else raise (Type_error "argument of iszero is not a number")
-
     (* T-Var *)
   | TmVar x ->
       (try getbinding ctx x with
        _ -> raise (Type_error ("no binding type for variable " ^ x)))
-
     (* T-Abs *)
   | TmAbs (x, tyT1, t2) ->
       let ctx' = addbinding ctx x tyT1 in
       let tyT2 = typeof ctx' t2 in
       TyArr (tyT1, tyT2)
-
     (* T-App *)
   | TmApp (t1, t2) ->
       let tyT1 = typeof ctx t1 in
@@ -127,7 +132,6 @@ let rec typeof ctx tm = match tm with
              if tyT2 = tyT11 then tyT12
              else raise (Type_error "parameter type mismatch")
          | _ -> raise (Type_error "arrow type expected"))
-
     (* T-Let *)
   | TmLetIn (x, t1, t2) ->
       let tyT1 = typeof ctx t1 in
@@ -135,43 +139,53 @@ let rec typeof ctx tm = match tm with
       typeof ctx' t2
 ;;
 
-
 (* TERMS MANAGEMENT (EVALUATION) *)
 
-let rec string_of_term = function
-    TmTrue ->
-      "true"
-  | TmFalse ->
-      "false"
-  | TmIf (t1,t2,t3) ->
-      "if " ^ "(" ^ string_of_term t1 ^ ")" ^
-      " then " ^ "(" ^ string_of_term t2 ^ ")" ^
-      " else " ^ "(" ^ string_of_term t3 ^ ")"
-  | TmZero ->
-      "0"
-  | TmSucc t ->
-     let rec f n t' = match t' with
+let string_of_term tm =
+  let rec aux nest t = (*Give terms proper nesting parenthesis*)
+    let s =
+      match t with
+
+      | TmTrue -> "true"
+      | TmFalse -> "false"
+      | TmZero -> "0"
+      | TmString s -> "\"" ^ s ^ "\""
+      | TmVar x -> x
+
+      | TmSucc t ->
+          let rec f n t' = match t' with
           TmZero -> string_of_int n
         | TmSucc s -> f (n+1) s
-        | _ -> "succ " ^ "(" ^ string_of_term t ^ ")"
+        | _ -> "succ " ^  aux 1 t 
       in f 1 t
-  | TmPred t ->
-      "pred " ^ "(" ^ string_of_term t ^ ")"
-  | TmIsZero t ->
-      "iszero " ^ "(" ^ string_of_term t ^ ")"
-  | TmVar s ->
-      s
-  | TmAbs (s, tyS, t) ->
-      "(lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term t ^ ")"
-  | TmApp (t1, t2) ->
-      "(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
-  | TmLetIn (s, t1, t2) ->
-      "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
-  | TmString s ->
-      "\"" ^ s ^ "\""   (* Scaped quoted surounding *)
-  | TmConcat (t1, t2) ->
-      "(" ^ string_of_term t1 ^ " ^ " ^ string_of_term t2 ^ ")"
-;;
+
+      | TmPred t1 ->
+          "pred " ^ aux 1 t1
+
+      | TmIsZero t1 ->
+          "iszero " ^ aux 1 t1
+
+      | TmAbs (x, ty, t1) ->
+          "lambda " ^ x ^ ":" ^ string_of_ty ty ^ ". " ^ aux 0 t1
+
+      | TmApp (t1, t2) ->
+          aux 1 t1 ^ " " ^ aux 1 t2
+
+      | TmIf (t1, t2, t3) ->
+          "if " ^ aux 0 t1 ^
+          " then " ^ aux 0 t2 ^
+          " else " ^ aux 0 t3
+
+      | TmLetIn (x, t1, t2) ->
+          "let " ^ x ^ " = " ^ aux 0 t1 ^ " in " ^ aux 0 t2
+
+      | TmConcat (t1, t2) ->
+          aux 1 t1 ^ " ^ " ^ aux 1 t2
+    in
+    (* add parentheses only when nested *)
+    if nest > 0 then "(" ^ s ^ ")" else s
+  in
+  aux 0 tm
 
 let rec ldif l1 l2 = match l1 with
     [] -> []

@@ -4,12 +4,23 @@ This practice consists in implement a lambda calculus interpret in Ocaml.
 
 User Guide.
 Here we describe how the new interpret functions work.
-
+1.1 - Now sentences must end in ;; in order to allow users to split sentences in more than one line. 
+    for example: let a = 5 in
+                            if iszero a 
+                            then true
+                            else false ;;
+1.2 - The output of the types now is more clear
+2.3 - There is a new type String. Now values like "Hello world" are recogniced and functions can be defined with String too.
+    There is a new operator ^ to concadenate two strings.
 
 Technical Guide.
 Here we describe the changes made to implement the new funtionalities.
 
-1.1 Multi-line-parsing. The main.ml  was modified to add the readline() output to a buffer, and keep reading lines until
+1.1 - Multi-line-parsing. The main.ml  was modified to add the readline() output to a buffer, and keep reading lines until
     a ;; is found. Then the lexical parser is called over this new buffer. As the new buffer could now contain \n we added this 
     chararcter in the lexical rule that already ignored spaces and tabs.
-
+1.1 - Changed string_of_ty a proper way to print parenthesis according to nesting level.
+    
+2.3 - Added a new type "String" in the lamda.ml and .mli. A new term for the operator concat, and added a new token
+    in the parser to recognice de concat operator symbol "^", a new token for the keyword String to represent the string type
+     and a new token to recognice words in quotes as strings. Also with the tokens, the corresponding lexical and gramatical rules were included.
