@@ -125,6 +125,32 @@ let string_of_ty ty =
 exception Type_error of string
 ;;
 
+let rec subtype tyS tyT =
+  if tyS = tyT then true
+  else
+    match (tyS, tyT) with
+    | (TyRecord fieldsS, TyRecord fieldsT) ->
+        (* For each field in the expected type (T), it must be in S and be compatible *)
+        List.for_all (fun (label, tyTi) ->
+          try
+            let tySi = List.assoc label fieldsS in
+            subtype tySi tyTi
+          with Not_found -> false
+        ) fieldsT
+    
+    | (TyArr (tyS1, tyS2), TyArr (tyT1, tyT2)) ->
+        (* Contravariance in arguments, Covariance in return *)
+        (subtype tyT1 tyS1) && (subtype tyS2 tyT2)
+
+        (*Optional: Alias ​​management if not expanded beforehand*)
+    | (TyAlias _, _) | (_, TyAlias _) -> 
+        (*Note: Ideally, you should expand the aliases before calling subtype
+        or pass the global context to ssubtype.*)
+        false 
+
+    | _ -> false
+;;
+
 let rec typeof ctx tm = match tm with
     (* T-True *)
     TmTrue ->
@@ -179,8 +205,9 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
            TyArr (tyT11, tyT12) ->
-             if tyT2 = tyT11 then tyT12
-             else raise (Type_error "parameter type mismatch")
+             (* Verificamos si el tipo del argumento real (tyT2) es subtipo del esperado (tyT11) *)
+             if subtype tyT2 tyT11 then tyT12 
+             else raise (Type_error "parameter type mismatch: argument is not a subtype")
          | _ -> raise (Type_error "arrow type expected"))
     (* T-Let *)
   | TmLetIn (x, t1, t2) ->
