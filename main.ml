@@ -7,7 +7,7 @@ open Lexer
 
 (* Read until user writes ;; *)
 let read_until_terminator () =
-  let buf = Buffer.create 128 in
+  let buf = Buffer.create 1024 in
   let rec aux () =
     let line = read_line () in
     match String.index_opt line ';' with
