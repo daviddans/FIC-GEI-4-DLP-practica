@@ -6,10 +6,10 @@ type ty =
   | TyNat
   | TyArr of ty * ty
   | TyList of ty
-  | TyAlias of string (*type for type aliases *)
-  | TyString           (*type string*)
-  | TyTuple of ty list (*type tuple*)
-  | TyRecord of (string * ty) list  (*type record*)
+  | TyAlias of string               (* Type for type aliases (user-defined names) *)
+  | TyString                        (* Type for text strings *)
+  | TyTuple of ty list              (* Type for tuples (sequences of typed elements) *)
+  | TyRecord of (string * ty) list  (* Type for records (list of labeled fields) *)
 ;;
 
 type context =
@@ -28,18 +28,18 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
-  | TmFix of term
-  | TmString of string        (*type string*)
-  | TmConcat of term * term   (*concat operator*)
-  | TmTuple of term list      (*term for tuples*)
-  | TmProj of term * int      (*term for projections*)
-  | TmRecord of (string * term) list  (* pair list (tag, value) *)
-  | TmProjVar of term * string       (* projection for tags (string) *)
-  | TmNil of ty                     (* Lista vacía, lleva el tipo explícito *)
-  | TmCons of term * term           (* Cons: cabeza y cola *)
-  | TmIsNil of term                 (* Chequeo si es vacía *)
-  | TmHead of term                  (* Obtener cabeza *)
-  | TmTail of term                  (* Obtener cola *)
+  | TmFix of term                   (* Fixed-point combinator for recursion *)
+  | TmString of string              (* String literal value *)
+  | TmConcat of term * term         (* String concatenation operator *)
+  | TmTuple of term list            (* Tuple constructor (list of terms) *)
+  | TmProj of term * int            (* Tuple projection (access element by index) *)
+  | TmRecord of (string * term) list (* Record constructor (list of label-value pairs) *)
+  | TmProjVar of term * string      (* Record projection (access field by label) *)
+  | TmNil of ty                     (* Empty list (Nil), carries the type of its elements *)
+  | TmCons of term * term           (* Cons constructor: adds a head element to a tail list *)
+  | TmIsNil of term                 (* Check if the list is empty (returns boolean) *)
+  | TmHead of term                  (* Retrieve the head (first element) of the list *)
+  | TmTail of term                  (* Retrieve the tail (rest of the list) *)
 ;;
 
 type sentence =
@@ -115,6 +115,7 @@ let string_of_ty ty =
         "{" ^ String.concat ", " (List.map f fields) ^ "}"
     | TyAlias s -> s
 
+    (* Case for List Types*)
     | TyList t1 -> 
         "List " ^ aux 0 t1
   in
@@ -187,13 +188,11 @@ let rec typeof ctx tm = match tm with
       let ctx' = addbinding ctx x tyT1 in
       typeof ctx' t2
 
-  (* T-Nil: nil[T] tiene tipo List T *)
+  (* T-Nil: Returns List T based on explicit type*)
   | TmNil ty ->
       TyList ty
 
-  (* T-Cons: cons t1 t2 
-     Verifica que t2 sea una lista del mismo tipo que t1.
-     Devuelve List T. *)
+  (* T-Cons: cons t1 t2  Checks head type matches tail's element type. *)
   | TmCons (t1, t2) ->
       let tyT1 = typeof ctx t1 in
       let tyT2 = typeof ctx t2 in
@@ -203,28 +202,25 @@ let rec typeof ctx tm = match tm with
            else raise (Type_error "elements of list have different types")
        | _ -> raise (Type_error "second argument of cons is not a list"))
 
-  (* T-IsNil: isnil t 
-     Verifica que t sea una lista. Devuelve Bool. *)
+  (* T-IsNil: Argument must be a List *)
   | TmIsNil t ->
       (match typeof ctx t with
        | TyList _ -> TyBool
        | _ -> raise (Type_error "argument of isnil is not a list"))
 
-  (* T-Head: head t 
-     Verifica que t sea una lista de tipo T. Devuelve T. *)
+  (* T-Head: head t Argument must be a List, returns element type*)
   | TmHead t ->
       (match typeof ctx t with
        | TyList tyT -> tyT
        | _ -> raise (Type_error "argument of head is not a list"))
 
-  (* T-Tail: tail t 
-     Verifica que t sea una lista de tipo T. Devuelve List T. *)
+  (* T-Tail: tail t Argument must be a List, returns List type *)
   | TmTail t ->
       (match typeof ctx t with
        | TyList tyT -> TyList tyT
        | _ -> raise (Type_error "argument of tail is not a list"))
 
-    (* T-Tuple: Check type of each element *)
+  (* T-Tuple: Check type of each element *)
   | TmTuple l ->
         TyTuple (List.map (typeof ctx) l)
 
@@ -232,20 +228,20 @@ let rec typeof ctx tm = match tm with
   | TmProj (t, i) ->
         (match typeof ctx t with
          | TyTuple fieldTys ->
-             (* Verificamos que el índice sea válido (1-based index) *)
+             (* User indices are 1-based *)
              if i < 1 || i > List.length fieldTys then
                raise (Type_error ("projection index " ^ string_of_int i ^ " out of bounds"))
              else
-               (* List.nth usa índice 0, por eso restamos 1 *)
+               (* List.nth uses 0-based index*)
                List.nth fieldTys (i - 1)
          | _ -> 
              raise (Type_error "argument of projection is not a tuple"))
-   (* T-Record: *)
+   (* T-Record: Returns record of typed fields*)
   | TmRecord fields ->
         let field_tys = List.map (fun (li, ti) -> (li, typeof ctx ti)) fields in
         TyRecord field_tys
 
-    (* T-ProjVar:  *)
+    (* T-ProjVar: Check record type and existing label *)
   | TmProjVar (t, l) ->
         (match typeof ctx t with
          | TyRecord field_tys ->
@@ -253,7 +249,7 @@ let rec typeof ctx tm = match tm with
               with Not_found -> raise (Type_error ("label " ^ l ^ " not found")))
          | _ -> 
              raise (Type_error "Expected record type"))  
-
+   (* T-Fix: Argument must be T -> T *)
   | TmFix t1 ->
       let tyT1 = typeof ctx t1 in
       (match tyT1 with
@@ -310,20 +306,21 @@ let string_of_term tm =
       | TmConcat (t1, t2) ->
           aux 1 t1 ^ " ^ " ^ aux 1 t2
 
-      (*cases for Tuple Terms and Projections *)
+      (* Pretty print for Tuples *)
       | TmTuple l ->
           let s = String.concat ", " (List.map (aux 0) l) in
           "{" ^ s ^ "}"
       | TmProj (t, i) ->
           aux 2 t ^ "." ^ string_of_int i
         
-      (*cases for Record Terms and Projections *)    
+      (* Pretty print for Records *)  
       | TmRecord fields ->
           let f (l, t) = l ^ "=" ^ aux 0 t in
           "{" ^ String.concat ", " (List.map f fields) ^ "}"
       | TmProjVar (t, l) ->
           aux 2 t ^ "." ^ l
 
+      (* Pretty print for Lists *)
       | TmNil ty -> 
           "nil[" ^ string_of_ty ty ^ "]"
       | TmCons (t1, t2) -> 
@@ -380,17 +377,19 @@ let rec free_vars tm = match tm with
   | TmConcat (t1, t2) ->
       lunion (free_vars t1) (free_vars t2)
 
-  (*Cases for Tuples free vars *)
+  (* Recursively get free vars from Tuple elements *)
   | TmTuple l ->
       List.fold_left (fun acc t -> lunion acc (free_vars t)) [] l
   | TmProj (t, _) ->
       free_vars t
 
-  (*cases for Record Terms and Projections *)        
+  (* Recursively get free vars from Record fields *)       
   | TmRecord fields ->
       List.fold_left (fun acc (_, t) -> lunion acc (free_vars t)) [] fields
   | TmProjVar (t, _) ->
       free_vars t
+
+  (* Recursively get free vars from Lists *)    
   | TmNil _ ->
       []
   | TmCons (t1, t2) ->
@@ -447,18 +446,19 @@ let rec subst x s tm = match tm with
   | TmConcat (t1, t2) ->
       TmConcat (subst x s t1, subst x s t2)
 
-  (* Cases for Substitution in Tuples *)
+  (* Structural substitution for Tuples *)
   | TmTuple l ->
       TmTuple (List.map (subst x s) l)
   | TmProj (t, i) ->
       TmProj (subst x s t, i)
   
-  (* Cases for Substitution in Records*)
+  (* Structural substitution for Records *)
   | TmRecord fields ->
       TmRecord (List.map (fun (l, t) -> (l, subst x s t)) fields)
   | TmProjVar (t, l) ->
       TmProjVar (subst x s t, l)
-
+  
+  (* Structural substitution for Lists *)
   | TmNil ty ->
       TmNil ty
   | TmCons (t1, t2) ->
@@ -483,12 +483,17 @@ let rec isval tm = match tm with
   | TmAbs _ -> true
   | TmString _ -> true
   | t when isnumericval t -> true
-  (* Case: A tuple is a value if all its elements are values *)
+
+  (* Tuples are values if all elements are values *)
   | TmTuple l -> List.for_all isval l
 
+  (* Records are values if all fields are values *)
   | TmRecord fields -> List.for_all (fun (_, t) -> isval t) fields
 
+  (* Nil is a value *)
   | TmNil _ -> true
+
+  (* Cons is a value if head and tail are values *)
   | TmCons (h, t) -> isval h && isval t
 
   | _ -> false
@@ -565,10 +570,11 @@ let rec eval1 tm = match tm with
       let t1' = eval1 t1 in
       TmLetIn (x, t1', t2)
 
+  (*E-FixBeta: Substitute fix term in body*)
   | TmFix (TmAbs(x, _, t12)) ->
       subst x tm t12
 
-    (* E-Fix: Evaluar el argumento de fix si aún no es un valor *)
+    (*E-Fix: Evaluate fix argument *)
   | TmFix t1 ->
       let t1' = eval1 t1 in
       TmFix t1'
@@ -610,66 +616,67 @@ let rec eval1 tm = match tm with
                 t' :: rest
         in
         TmTuple (eval_fields l)
-    (* E-ProjRecord: Extraer el valor de un campo si el registro ya es un valor *)
+
+    (* E-ProjTuple: Extract value from evaluated tuple *)
   | TmProjVar (TmRecord fields, label) when isval (TmRecord fields) ->
         (try List.assoc label fields
          with Not_found -> raise NoRuleApplies)
 
-    (* E-ProjVar: Regla de congruencia (evaluar el término proyectado) *)
+    (* E-Proj: Reduce tuple expression *)
   | TmProjVar (t1, label) ->
         let t1' = eval1 t1 in
         TmProjVar (t1', label)
 
-    (* E-Record: Evaluar los campos de izquierda a derecha *)
+    (* E-Tuple: Evaluate elements left-to-right *)
   | TmRecord fields ->
         let rec eval_fields = function
-          | [] -> raise NoRuleApplies (* Todos son valores *)
+          | [] -> raise NoRuleApplies 
           | (l, t) :: rest ->
               if isval t then
-                (l, t) :: eval_fields rest (* Ya es valor, seguir con el siguiente *)
+                (l, t) :: eval_fields rest 
               else
-                let t' = eval1 t in        (* Evaluar este campo *)
+                let t' = eval1 t in        
                 (l, t') :: rest
         in
         TmRecord (eval_fields fields)
 
-  (* E-Cons1: Evaluar la cabeza primero *)
+  (* E-Cons1: Evaluate head first *)
   | TmCons (t1, t2) when not (isval t1) ->
       let t1' = eval1 t1 in
       TmCons (t1', t2)
       
-  (* E-Cons2: Evaluar la cola cuando la cabeza ya es un valor *)
+  (* E-Cons2: Evaluate tail once head is value *)
   | TmCons (v1, t2) when isval v1 && not (isval t2) ->
       let t2' = eval1 t2 in
       TmCons (v1, t2')
 
-  (* E-IsNilNil: isnil nil -> true *)
+  (* E-IsNilNil: isnil nil is true *)
   | TmIsNil (TmNil _) ->
       TmTrue
 
-  (* E-IsNilCons: isnil (cons v1 v2) -> false *)
+  (* E-IsNilCons: isnil cons is false *)
   | TmIsNil (TmCons (v1, v2)) when isval v1 && isval v2 ->
       TmFalse
 
-  (* E-IsNil: Regla de congruencia *)
+  (* E-IsNil: Reduce argument *)
   | TmIsNil t1 ->
       let t1' = eval1 t1 in
       TmIsNil t1'
 
-  (* E-HeadCons: head (cons v1 v2) -> v1 *)
+  (* E-HeadCons: Get head value *)
   | TmHead (TmCons (v1, v2)) when isval v1 && isval v2 ->
       v1
 
-  (* E-Head: Regla de congruencia *)
+  (* E-Head: Reduce argument *)
   | TmHead t1 ->
       let t1' = eval1 t1 in
       TmHead t1'
 
-  (* E-TailCons: tail (cons v1 v2) -> v2 *)
+  (* E-TailCons: Get tail value *)
   | TmTail (TmCons (v1, v2)) when isval v1 && isval v2 ->
       v2
 
-  (* E-Tail: Regla de congruencia *)
+  (* E-Tail: Reduce argument *)
   | TmTail t1 ->
       let t1' = eval1 t1 in
       TmTail t1'

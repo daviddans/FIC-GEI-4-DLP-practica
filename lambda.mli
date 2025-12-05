@@ -3,10 +3,10 @@ type ty =
   | TyNat
   | TyArr of ty * ty
   | TyList of ty
-  | TyAlias of string (*type for type aliases *)
-  | TyString           (*type string*)
-  | TyTuple of ty list (*type tuple*)
-  | TyRecord of (string * ty) list  (*type record*)
+  | TyAlias of string               (* Type for type aliases (user-defined names) *)
+  | TyString                        (* Type for text strings *)
+  | TyTuple of ty list              (* Type for tuples (sequences of typed elements) *)
+  | TyRecord of (string * ty) list  (* Type for records (list of labeled fields) *)
 ;;
 
 type context =
@@ -25,19 +25,20 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
-  | TmFix of term
-  | TmString of string        (*term string*)
-  | TmConcat of term * term   (*concat operator *)
-  | TmTuple of term list      (*term for tuples*)
-  | TmProj of term * int      (*term for projections*)
-  | TmRecord of (string * term) list  (* pair list (tag, value) *)
-  | TmProjVar of term * string       (* projection for tags (string) *)
-  | TmNil of ty                     (* Lista vacía, lleva el tipo explícito *)
-  | TmCons of term * term           (* Cons: cabeza y cola *)
-  | TmIsNil of term                 (* Chequeo si es vacía *)
-  | TmHead of term                  (* Obtener cabeza *)
-  | TmTail of term                  (* Obtener cola *)
+  | TmFix of term                   (* Fixed-point combinator for recursion *)
+  | TmString of string              (* String literal value *)
+  | TmConcat of term * term         (* String concatenation operator *)
+  | TmTuple of term list            (* Tuple constructor (list of terms) *)
+  | TmProj of term * int            (* Tuple projection (access element by index) *)
+  | TmRecord of (string * term) list (* Record constructor (list of label-value pairs) *)
+  | TmProjVar of term * string      (* Record projection (access field by label) *)
+  | TmNil of ty                     (* Empty list (Nil), carries the type of its elements *)
+  | TmCons of term * term           (* Cons constructor: adds a head element to a tail list *)
+  | TmIsNil of term                 (* Check if the list is empty (returns boolean) *)
+  | TmHead of term                  (* Retrieve the head (first element) of the list *)
+  | TmTail of term                  (* Retrieve the tail (rest of the list) *)
 ;;
+
 
 type sentence =
   | Eval of term

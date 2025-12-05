@@ -21,6 +21,14 @@ Here we describe the changes made to implement the new funtionalities.
     chararcter in the lexical rule that already ignored spaces and tabs.
 1.1 - Changed string_of_ty a proper way to print parenthesis according to nesting level.
 
+2.1 - Fixed-Point Combinator (Letrec)
+    Native support for recursive functions was incorporated using the letrec keyword.
+    Syntax: letrec f : Ty = lambda x:Tx. body in ....
+    Implementation (Parser): In parser.mly, the letrec rule does not introduce a new term type in the AST for binding; instead, 
+    it functions as syntactic sugar. It is internally transformed using the fixed-point combinator (TmFix).
+    The expression letrec f : Ty = t1 in t2 is automatically translated to TmLetIn ("f", TmFix (TmAbs ("f", Ty, t1)), t2).
+    Evaluation: In lambda.ml, evaluation rules E-Fix and E-FixBeta were added to perform recursive substitution of the term into itself.
+
 2.2 - We implement global definitions through a new context. This lives as an argument in the main loop, and has a type global_contex,
     this is a list of global_entry types, that could either be a term or an alias (This is very similar to the old context for resolving types of local variables).
     Then in the main we use the funtion expand_globals to expand those in the term that stores so  we can then evaluate the full expresion.
@@ -32,3 +40,28 @@ Here we describe the changes made to implement the new funtionalities.
 2.3 - Added a new type "String" in the lamda.ml and .mli. A new term for the operator concat, and added a new token
     in the parser to recognice de concat operator symbol "^", a new token for the keyword String to represent the string type
      and a new token to recognice words in quotes as strings. Also with the tokens, the corresponding lexical and gramatical rules were included.
+
+2.4 - Tuples
+    Support for n-ary Cartesian products.
+    Syntax: {t1, t2, ..., tn} for construction and t.i for projection.
+    Typing: TyTuple contains a list of types. The T-Proj rule verifies that the projection index is within the list bounds
+    (adjusting the user's 1-based index to OCaml's 0-based index).
+    Evaluation:
+    E-Tuple: Evaluates elements from left to right. A TmTuple term is only a value if all its components are values.
+    E-ProjTuple: Extracts the i-th element once the tuple is fully evaluated.
+
+2.5 - Records
+    Support for data structures with labeled fields.
+    Syntax: {label1=val1, label2=val2} for construction and t.label for projection.
+    Typing: TyRecord stores a list of (string * ty) pairs.
+    Evaluation: 
+    Similar to tuples, fields are evaluated sequentially. Projection (TmProjVar) searches for the label in the associative list of the evaluated record.
+
+2.7 - Lists
+    Support for finite sequences of elements of the same type.
+    Syntax: nil[Ty], cons t1 t2, isnil t, head t, tail t.
+    Typing: TyList of ty. Strict rules ensure that cons receives an element and a list of the same base type, and that nil carries an explicit type annotation to avoid inference ambiguities.
+    Evaluation:
+    isnil: Returns true for TmNil and false for TmCons (when its components are values).
+    head/tail: Extract the first component or the rest of the list, respectively.
+    Complex examples were implemented in examples.txt (length, append, map) using letrec and list primitives, demonstrating the language's expressive power without relying on OCaml lists for user logic.

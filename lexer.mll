@@ -33,7 +33,6 @@ rule token = parse
   | '['         { LSQUARE }   
   | ']'         { RSQUARE }   
 
-  (* tokens for tuples *)
   | '{'         { LBRACE }   
   | '}'         { RBRACE }   
   | ','         { COMMA }    

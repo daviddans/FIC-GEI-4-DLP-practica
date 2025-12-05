@@ -56,7 +56,7 @@ s :
       {Eval $1 }
     | IDV EQ term EOF
         {Bind ($1, $3) }
-    | LET IDV EQ term EOF          /* Allows 'let x = ...' */
+    | LET IDV EQ term EOF          
         {Bind ($2, $4) }
     | LETREC IDV COLON ty EQ term EOF   
         { Bind ($2, TmFix (TmAbs ($2, $4, $6))) }
@@ -174,7 +174,7 @@ ne_field_types :
       { ($1, $3) :: $5 }
 
 fields :
-  | /* vacío */ { [] }
+  | { [] }
   | ne_fields { $1 }
 
 ne_fields :
