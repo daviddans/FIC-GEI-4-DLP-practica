@@ -88,3 +88,43 @@ letrec iseven : Nat -> Bool = lambda n : Nat.
 iseven (succ (succ (succ (succ 0))));;
 
 iseven (succ (succ (succ (succ (succ 0)))));;
+
+let milista = cons 1 (cons 2 (cons 3 nil[Nat]));;
+
+letrec length : List Nat -> Nat = lambda l : List Nat.
+  if isnil l then 0
+  else succ (length (tail l))
+in
+length milista;;
+
+
+letrec append : List Nat -> List Nat -> List Nat = 
+  lambda l1 : List Nat. lambda l2 : List Nat.
+    if isnil l1 then l2
+    else cons (head l1) (append (tail l1) l2)
+in
+let l1 = cons 1 (cons 2 nil[Nat]) in
+let l2 = cons 3 (cons 4 nil[Nat]) in
+append l1 l2;;
+
+
+letrec map : (Nat -> Nat) -> List Nat -> List Nat =
+  lambda f : Nat -> Nat. lambda l : List Nat.
+    if isnil l then nil[Nat]
+    else cons (f (head l)) (map f (tail l))
+in
+let double = lambda x:Nat. succ (succ (pred (succ x))) in
+let masuno = lambda x:Nat. succ x in
+map masuno milista;;
+
+
+letrec suma : Nat -> Nat -> Nat = lambda m : Nat. lambda n : Nat.
+  if iszero m then n
+  else succ (suma (pred m) n);;
+
+
+let lstrings = cons "Hola " (cons "Mundo " (cons "Cruel" nil[String]));;
+
+let ltuples = cons {10, true} (cons {20, false} (cons {30, true} nil[{Nat, Bool}]));;
+
+let lrecords = cons {id=1, code="A"} (cons {id=2, code="B"} nil[{id:Nat, code:String}]);;

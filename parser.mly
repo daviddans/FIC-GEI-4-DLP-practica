@@ -24,6 +24,14 @@
 %token RBRACE
 %token COMMA
 
+%token LIST
+%token NIL
+%token CONS
+%token ISNIL
+%token HEAD
+%token TAIL
+%token LSQUARE
+%token RSQUARE
 
 %token LPAREN
 %token RPAREN
@@ -50,7 +58,7 @@ s :
         {Bind ($1, $3) }
     | LET IDV EQ term EOF          /* Allows 'let x = ...' */
         {Bind ($2, $4) }
-    | LETREC IDV COLON ty EQ term EOF   /* ADD THIS RULE */
+    | LETREC IDV COLON ty EQ term EOF   
         { Bind ($2, TmFix (TmAbs ($2, $4, $6))) }
     | ALS EQ ty EOF 
         {Alias ($1, $3)}
@@ -85,6 +93,14 @@ appTerm :
       { TmProj ($1, $3) }
   | appTerm DOT IDV
       { TmProjVar ($1, $3) }
+  | CONS atomicTerm atomicTerm
+      { TmCons ($2, $3) }
+  | ISNIL atomicTerm
+      { TmIsNil $2 }
+  | HEAD atomicTerm
+      { TmHead $2 }
+  | TAIL atomicTerm
+      { TmTail $2 }
     
 
 atomicTerm :
@@ -107,6 +123,8 @@ atomicTerm :
       { TmRecord $2 }
   | LBRACE tupleTerm RBRACE
       { TmTuple $2 }
+  | NIL LSQUARE ty RSQUARE
+      { TmNil $3 }
 
 ty :
     atomicTy
@@ -129,6 +147,8 @@ atomicTy :
       { TyTuple $2 }
   | LBRACE field_types RBRACE
       { TyRecord $2 }
+  | LIST atomicTy
+      { TyList $2 }
 
 
 tupleType :

@@ -2,6 +2,7 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
+  | TyList of ty
   | TyAlias of string (*type for type aliases *)
   | TyString           (*type string*)
   | TyTuple of ty list (*type tuple*)
@@ -31,6 +32,11 @@ type term =
   | TmProj of term * int      (*term for projections*)
   | TmRecord of (string * term) list  (* pair list (tag, value) *)
   | TmProjVar of term * string       (* projection for tags (string) *)
+  | TmNil of ty                     (* Lista vacía, lleva el tipo explícito *)
+  | TmCons of term * term           (* Cons: cabeza y cola *)
+  | TmIsNil of term                 (* Chequeo si es vacía *)
+  | TmHead of term                  (* Obtener cabeza *)
+  | TmTail of term                  (* Obtener cola *)
 ;;
 
 type sentence =

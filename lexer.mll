@@ -24,6 +24,15 @@ rule token = parse
   | '('         { LPAREN }
   | ')'         { RPAREN }
 
+  | "List"      { LIST }     
+  | "nil"       { NIL }      
+  | "cons"      { CONS }      
+  | "isnil"     { ISNIL }     
+  | "head"      { HEAD }      
+  | "tail"      { TAIL }      
+  | '['         { LSQUARE }   
+  | ']'         { RSQUARE }   
+
   (* tokens for tuples *)
   | '{'         { LBRACE }   
   | '}'         { RBRACE }   
