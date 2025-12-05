@@ -27,6 +27,7 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
+  | TmFix of term
   | TmString of string        (*type string*)
   | TmConcat of term * term   (*concat operator*)
   | TmTuple of term list      (*term for tuples*)
@@ -106,6 +107,7 @@ let string_of_ty ty =
     | TyRecord fields ->
         let f (l, t) = l ^ ":" ^ aux 0 t in
         "{" ^ String.concat ", " (List.map f fields) ^ "}"
+    | TyAlias s -> s
   in
   aux 0 ty
 ;;
@@ -205,6 +207,14 @@ let rec typeof ctx tm = match tm with
               with Not_found -> raise (Type_error ("label " ^ l ^ " not found")))
          | _ -> 
              raise (Type_error "Expected record type"))  
+
+  | TmFix t1 ->
+      let tyT1 = typeof ctx t1 in
+      (match tyT1 with
+           TyArr (tyT11, tyT12) ->
+             if tyT11 = tyT12 then tyT12
+             else raise (Type_error "result of body not compatible with domain")
+         | _ -> raise (Type_error "arrow type expected"))
     
 ;;
 
@@ -247,6 +257,9 @@ let string_of_term tm =
 
       | TmLetIn (x, t1, t2) ->
           "let " ^ x ^ " = " ^ aux 0 t1 ^ " in " ^ aux 0 t2
+          
+      | TmFix t ->
+          "fix " ^ aux 0 t
 
       | TmConcat (t1, t2) ->
           aux 1 t1 ^ " ^ " ^ aux 1 t2
@@ -303,6 +316,8 @@ let rec free_vars tm = match tm with
       lunion (free_vars t1) (free_vars t2)
   | TmLetIn (s, t1, t2) ->
       lunion (ldif (free_vars t2) [s]) (free_vars t1)
+  | TmFix t ->
+      free_vars t
   | TmString _ ->
       []
   | TmConcat (t1, t2) ->
@@ -358,18 +373,16 @@ let rec subst x s tm = match tm with
            then TmLetIn (y, subst x s t1, subst x s t2)
            else let z = fresh_name y (free_vars t2 @ fvs) in
                 TmLetIn (z, subst x s t1, subst x s (subst y (TmVar z) t2))
+  | TmFix t ->                   (* ADD THIS CASE *)
+      TmFix (subst x s t)
   | TmString s ->
       TmString s
   | TmConcat (t1, t2) ->
       TmConcat (subst x s t1, subst x s t2)
-
-  (* Cases for Substitution in Tuples *)
   | TmTuple l ->
       TmTuple (List.map (subst x s) l)
   | TmProj (t, i) ->
       TmProj (subst x s t, i)
-  
-  (* Cases for Substitution in Records*)
   | TmRecord fields ->
       TmRecord (List.map (fun (l, t) -> (l, subst x s t)) fields)
   | TmProjVar (t, l) ->
@@ -466,6 +479,14 @@ let rec eval1 tm = match tm with
       let t1' = eval1 t1 in
       TmLetIn (x, t1', t2)
 
+  | TmFix (TmAbs(x, _, t12)) ->
+      subst x tm t12
+
+    (* E-Fix: Evaluar el argumento de fix si aún no es un valor *)
+  | TmFix t1 ->
+      let t1' = eval1 t1 in
+      TmFix t1'
+
     (* E-ConcatString: Real op*)
   | TmConcat (TmString s1, TmString s2) ->
       TmString (s1 ^ s2)
@@ -559,6 +580,9 @@ let expand_globals gctx tm =
     | TmLetIn(x, t1, t2) ->
         TmLetIn(x, aux bound t1, aux (x :: bound) t2)
 
+    | TmFix t -> 
+        TmFix(aux bound t)
+
     | TmIf(t1, t2, t3) ->
         TmIf(aux bound t1, aux bound t2, aux bound t3)
 
@@ -613,6 +637,9 @@ let expand_aliases gctx tm =
 
     | TmLetIn(x, t1, t2) ->
         TmLetIn(x, aux t1, aux t2)
+
+    | TmFix t -> 
+        TmFix(aux t)
 
     | TmApp(t1, t2) ->
         TmApp(aux t1, aux t2)

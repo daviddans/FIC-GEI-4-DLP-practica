@@ -24,6 +24,7 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
+  | TmFix of term
   | TmString of string        (*term string*)
   | TmConcat of term * term   (*concat operator *)
   | TmTuple of term list      (*term for tuples*)

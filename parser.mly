@@ -13,6 +13,7 @@
 %token PRED
 %token ISZERO
 %token LET
+%token LETREC
 %token IN
 %token BOOL
 %token NAT
@@ -47,8 +48,13 @@ s :
       {Eval $1 }
     | IDV EQ term EOF
         {Bind ($1, $3) }
+    | LET IDV EQ term EOF          /* Allows 'let x = ...' */
+        {Bind ($2, $4) }
+    | LETREC IDV COLON ty EQ term EOF   /* ADD THIS RULE */
+        { Bind ($2, TmFix (TmAbs ($2, $4, $6))) }
     | ALS EQ ty EOF 
         {Alias ($1, $3)}
+    
 
 term :
     appTerm
@@ -59,6 +65,8 @@ term :
       { TmAbs ($2, $4, $6) }
   | LET IDV EQ term IN term
       { TmLetIn ($2, $4, $6) }
+  | LETREC IDV COLON ty EQ term IN term
+      { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
 
 appTerm :
     atomicTerm
