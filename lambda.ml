@@ -5,6 +5,7 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
+  | TyAlias of string (*type for type aliases *)
   | TyString           (*type string*)
   | TyTuple of ty list (*type tuple*)
   | TyRecord of (string * ty) list  (*type record*)
@@ -585,3 +586,60 @@ let expand_globals gctx tm =
   in
   aux [] tm
 
+(* Fully expands type aliases inside a term *)
+(* Fully expands type aliases inside a term *)
+let expand_aliases gctx tm =
+  (* helper for types *)
+  let rec expand_ty t =
+    match t with
+    | TyAlias name ->
+        (match getglobal gctx name with
+         | GlobalType real -> expand_ty real
+         | _ -> t)
+    | TyArr (t1, t2) ->
+        TyArr (expand_ty t1, expand_ty t2)
+    | TyTuple ts ->
+        TyTuple (List.map expand_ty ts)
+    | TyRecord fields ->
+        TyRecord (List.map (fun (l, ty) -> (l, expand_ty ty)) fields)
+    | _ -> t
+  in
+
+  (* walk term *)
+  let rec aux t =
+    match t with
+    | TmAbs(x, ty, body) ->
+        TmAbs(x, expand_ty ty, aux body)
+
+    | TmLetIn(x, t1, t2) ->
+        TmLetIn(x, aux t1, aux t2)
+
+    | TmApp(t1, t2) ->
+        TmApp(aux t1, aux t2)
+
+    | TmIf(t1, t2, t3) ->
+        TmIf(aux t1, aux t2, aux t3)
+
+    | TmSucc t1 -> TmSucc(aux t1)
+    | TmPred t1 -> TmPred(aux t1)
+    | TmIsZero t1 -> TmIsZero(aux t1)
+    | TmConcat(t1, t2) -> TmConcat(aux t1, aux t2)
+
+    | TmTuple xs ->
+        TmTuple (List.map aux xs)
+
+    | TmProj(t1, i) ->
+        TmProj(aux t1, i)
+
+    | TmRecord fields ->
+        TmRecord (List.map (fun (l,t) -> (l, aux t)) fields)
+
+    | TmProjVar(t1, l) ->
+        TmProjVar(aux t1, l)
+
+    (* base terms remain unchanged *)
+    | (TmVar _ | TmTrue | TmFalse | TmZero | TmString _) ->
+        t
+  in
+
+  aux tm

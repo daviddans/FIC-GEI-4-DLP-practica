@@ -34,6 +34,7 @@
 
 %token <int> INTV
 %token <string> IDV
+%token <string> ALS 
 %token <string> STRINGV 
 
 %start s
@@ -46,9 +47,9 @@ s :
       {Eval $1 }
     | IDV EQ term EOF
         {Bind ($1, $3) }
-    | IDV EQ ty EOF 
+    | ALS EQ ty EOF 
         {Alias ($1, $3)}
-        
+
 term :
     appTerm
       { $1 }
@@ -114,6 +115,8 @@ atomicTy :
       { TyNat }
   | STRING          
       { TyString }
+  | ALS
+        { TyAlias $1 }  
   | LBRACE tupleType RBRACE
       { TyTuple $2 }
   | LBRACE field_types RBRACE

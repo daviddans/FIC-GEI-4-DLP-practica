@@ -27,7 +27,8 @@ Here we describe the changes made to implement the new funtionalities.
     In order to allow declarations we change the type of the S producction in the grammar to a new type sentence that has 3 constructors, 
     one for terms, other for declarations, and other for aliases eachone with its corresponding grammar rule. Then we can use pattern-matching 
     in the main loop to either evaluate a expresion or declarate a new bind or alias.
-    
+    One important note is that we create a new token for names starting in capital for the aliases, so any alias of a type MUST start with capital.
+
 2.3 - Added a new type "String" in the lamda.ml and .mli. A new term for the operator concat, and added a new token
     in the parser to recognice de concat operator symbol "^", a new token for the keyword String to represent the string type
      and a new token to recognice words in quotes as strings. Also with the tokens, the corresponding lexical and gramatical rules were included.

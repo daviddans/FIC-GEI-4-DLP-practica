@@ -2,6 +2,7 @@ type ty =
     TyBool
   | TyNat
   | TyArr of ty * ty
+  | TyAlias of string (*type for type aliases *)
   | TyString           (*type string*)
   | TyTuple of ty list (*type tuple*)
   | TyRecord of (string * ty) list  (*type record*)
@@ -59,3 +60,5 @@ val emptygctx : global_context
 val addglobal : global_context -> string -> global_entry -> global_context
 val getglobal : global_context -> string -> global_entry
 val expand_globals : global_context -> term -> term
+val expand_aliases : global_context -> term -> term
+

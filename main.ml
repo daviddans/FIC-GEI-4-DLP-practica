@@ -25,8 +25,7 @@ let read_until_terminator () =
 
 let rec top_level_loop () =
   print_endline "Evaluator of lambda expressions...";
-  
-  (* extend loop with global context *)
+
   let rec loop ctx gctx =
     try
       print_string ">> "; flush stdout;
@@ -36,37 +35,49 @@ let rec top_level_loop () =
 
       match cmd with
 
-      (* --------- EVALUATION OF A PURE EXPRESSION --------- *)
-      | Eval tm ->
-          (* expand global references first *)
-          let tm' = expand_globals gctx tm in
-          (* typecheck expanded term *)
-          let tyTm = typeof ctx tm' in
-          (* evaluate expanded term *)
-          let v = eval tm' in
-          print_endline (string_of_term v ^ " : " ^ string_of_ty tyTm);
-          loop ctx gctx
+      (* ----------------- Evaluate expression ----------------- *)
+| Eval tm ->
+    (* expand aliases inside term *)
+    let tm1 = expand_aliases gctx tm in
+    (* expand global bindings *)
+    let tm2 = expand_globals gctx tm1 in
+    let tyTm = typeof ctx tm2 in
+    let v = eval tm2 in
+    print_endline (string_of_term v ^ " : " ^ string_of_ty tyTm);
+    loop ctx gctx
 
-      (* --------- GLOBAL TERM BINDING --------- *)
-      | Bind (x, tm) ->
-          (* expand globals inside assigned term *)
-          let tm' = expand_globals gctx tm in
-          (* first typecheck original term *)
-          let ty = typeof ctx tm' in
-          (* then evaluate original term once *)
-          let v  = eval tm' in
-          (* extend global context *)
-          let gctx' = addglobal gctx x (GlobalValue v) in
-          print_endline ("defined " ^ x ^ " : " ^ string_of_ty ty);
-          loop ctx gctx'
+      (* ----------------- Bind global term --------------------- *)
+| Bind (x, tm) ->
+    let tm1 = expand_aliases gctx tm in
+    let tm2 = expand_globals gctx tm1 in
+    let ty = typeof ctx tm2 in
+    let v = eval tm2 in
+    let gctx' = addglobal gctx x (GlobalValue v) in
+    print_endline ("defined " ^ x ^ " : " ^ string_of_ty ty);
+    loop ctx gctx'
 
-      (* --------- GLOBAL TYPE ALIASING --------- *)
-      | Alias (x, ty) ->
-          let gctx' = addglobal gctx x (GlobalType ty) in
-          print_endline ("type " ^ x ^ " = " ^ string_of_ty ty);
-          loop ctx gctx'
 
-    (* --------- ERRORS --------- *)
+      (* ----------------- Store type alias --------------------- *)
+| Alias (x, ty) ->
+    (* expand aliases inside stored type *)
+    let finalTy =
+      let rec expand_ty t =
+        match t with
+        | TyAlias name ->
+            (match getglobal gctx name with
+             | GlobalType real -> expand_ty real
+             | _ -> t)
+        | TyArr (a,b) -> TyArr(expand_ty a, expand_ty b)
+        | TyTuple ts -> TyTuple(List.map expand_ty ts)
+        | TyRecord fs -> TyRecord(List.map (fun (l,ty)->(l,expand_ty ty)) fs)
+        | _ -> t
+      in expand_ty ty
+    in
+    let gctx' = addglobal gctx x (GlobalType finalTy) in
+    print_endline ("type " ^ x ^ " = " ^ string_of_ty finalTy);
+    loop ctx gctx'
+
+    (* ----------------- Errors --------------------- *)
     with
     | Lexical_error ->
         print_endline "lexical error"; loop ctx gctx

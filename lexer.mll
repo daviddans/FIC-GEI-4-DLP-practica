@@ -37,6 +37,8 @@ rule token = parse
   | ['0'-'9']+  { INTV (int_of_string (Lexing.lexeme lexbuf)) }
   | ['a'-'z']['a'-'z' '_' '0'-'9']*
                 { IDV (Lexing.lexeme lexbuf) }
+  | ['A'-'Z']['a'-'z' '_' '0'-'9']*
+                { ALS (Lexing.lexeme lexbuf) }
   | "\"" [^ '"']* "\""
       { let s = Lexing.lexeme lexbuf in
         STRINGV (String.sub s 1 (String.length s - 2)) }
