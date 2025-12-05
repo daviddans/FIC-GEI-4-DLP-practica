@@ -34,8 +34,12 @@ type term =
   | TmProjVar of term * string       (* projection for tags (string) *)
 ;;
 
+type sentence =
+  | Eval of term
+  | Bind of string * term
+  | Alias of string * ty
 
-(* CONTEXT MANAGEMENT *)
+(* Local context managent for type declarations *)
 
 let emptyctx =
   []
@@ -48,6 +52,25 @@ let addbinding ctx x bind =
 let getbinding ctx x =
   List.assoc x ctx
 ;;
+
+(*Global context magement*)
+
+type global_entry =
+  | GlobalValue of term
+  | GlobalType of ty
+
+type global_context = (string * global_entry) list
+
+let emptygctx : global_context = []
+
+let addglobal gctx name entry =
+  (name, entry) :: gctx
+  
+let rec getglobal gctx name =
+  match gctx with
+  | [] -> raise Not_found
+  | (n, e) :: rest ->
+      if n = name then e else getglobal rest name
 
 
 (* TYPE MANAGEMENT (TYPING) *)
@@ -513,4 +536,52 @@ let rec eval tm =
   with
     NoRuleApplies -> tm
 ;;
+
+(*Expands global variables with the term it is storing*)
+let expand_globals gctx tm =
+  let rec aux bound t =
+    match t with
+    | TmVar x ->
+        if List.mem x bound then t
+        else (
+          match getglobal gctx x with
+          | GlobalValue v -> v
+          | _ | exception Not_found -> t
+        )
+
+    | TmAbs(x, ty, body) ->
+        TmAbs(x, ty, aux (x :: bound) body)
+
+    | TmApp(t1, t2) ->
+        TmApp(aux bound t1, aux bound t2)
+
+    | TmLetIn(x, t1, t2) ->
+        TmLetIn(x, aux bound t1, aux (x :: bound) t2)
+
+    | TmIf(t1, t2, t3) ->
+        TmIf(aux bound t1, aux bound t2, aux bound t3)
+
+    | TmConcat(t1, t2) ->
+        TmConcat(aux bound t1, aux bound t2)
+
+    | TmSucc t1    -> TmSucc(aux bound t1)
+    | TmPred t1    -> TmPred(aux bound t1)
+    | TmIsZero t1  -> TmIsZero(aux bound t1)
+
+    | TmTuple xs ->
+        TmTuple(List.map (aux bound) xs)
+
+    | TmProj(t1, i) ->
+        TmProj(aux bound t1, i)
+
+    | TmRecord fields ->
+        TmRecord(List.map (fun (l, t) -> (l, aux bound t)) fields)
+
+    | TmProjVar(t1, l) ->
+        TmProjVar(aux bound t1, l)
+
+    (* Base cases, leave untouched *)
+    | TmTrue | TmFalse | TmZero | TmString _ -> t
+  in
+  aux [] tm
 

@@ -20,6 +20,13 @@ Here we describe the changes made to implement the new funtionalities.
     a ;; is found. Then the lexical parser is called over this new buffer. As the new buffer could now contain \n we added this 
     chararcter in the lexical rule that already ignored spaces and tabs.
 1.1 - Changed string_of_ty a proper way to print parenthesis according to nesting level.
+
+2.2 - We implement global definitions through a new context. This lives as an argument in the main loop, and has a type global_contex,
+    this is a list of global_entry types, that could either be a term or an alias (This is very similar to the old context for resolving types of local variables).
+    Then in the main we use the funtion expand_globals to expand those in the term that stores so  we can then evaluate the full expresion.
+    In order to allow declarations we change the type of the S producction in the grammar to a new type sentence that has 3 constructors, 
+    one for terms, other for declarations, and other for aliases eachone with its corresponding grammar rule. Then we can use pattern-matching 
+    in the main loop to either evaluate a expresion or declarate a new bind or alias.
     
 2.3 - Added a new type "String" in the lamda.ml and .mli. A new term for the operator concat, and added a new token
     in the parser to recognice de concat operator symbol "^", a new token for the keyword String to represent the string type

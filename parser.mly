@@ -37,14 +37,18 @@
 %token <string> STRINGV 
 
 %start s
-%type <Lambda.term> s
+%type <Lambda.sentence> s
 
 %%
 
 s :
     term EOF
-      { $1 }
-
+      {Eval $1 }
+    | IDV EQ term EOF
+        {Bind ($1, $3) }
+    | IDV EQ ty EOF 
+        {Alias ($1, $3)}
+        
 term :
     appTerm
       { $1 }

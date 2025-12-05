@@ -29,7 +29,7 @@ sum 21 34;;
 "gola";;
 concat "hola" "mundo";;
 let xsdd = concat "func" "tongo" in xsdd;;
-let a = "cojon" in a;;
+let a = "wacamole" in a;;
 let d = 5 in d ;;
 "hola" ^ "mundo";;
 

@@ -1,4 +1,3 @@
-
 type ty =
     TyBool
   | TyNat
@@ -32,6 +31,11 @@ type term =
   | TmProjVar of term * string       (* projection for tags (string) *)
 ;;
 
+type sentence =
+  | Eval of term
+  | Bind of string * term
+  | Alias of string * ty
+
 val emptyctx : context;;
 val addbinding : context -> string -> ty -> context;;
 val getbinding : context -> string -> ty;;
@@ -44,3 +48,14 @@ val string_of_term : term -> string;;
 exception NoRuleApplies;;
 val eval : term -> term;;
 
+(*Types and functions for global declarations*)
+type global_entry =
+  | GlobalValue of term
+  | GlobalType of ty
+
+type global_context = (string * global_entry) list
+
+val emptygctx : global_context
+val addglobal : global_context -> string -> global_entry -> global_context
+val getglobal : global_context -> string -> global_entry
+val expand_globals : global_context -> term -> term
