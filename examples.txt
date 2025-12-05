@@ -171,3 +171,40 @@ let complexrecord = {data={id=99, code=10}, valid=true} in
 getid complexrecord;;
 
 L x:Nat. x;;
+
+x = true;;
+id = lambda x : Bool. x;;
+
+
+let swap = lambda p:{Nat, Bool}. {p.2, p.1} in
+swap {10, true};;
+
+let incuser = lambda u:{id:Nat, count:Nat}. {id=u.id, count=succ (u.count)} in
+incuser {id=1, count=5};;
+
+
+let datalist = cons {id=1, val=true} (cons {id=2, val=false} nil[{id:Nat, val:Bool}]) in
+letrec extractvals : List {id:Nat, val:Bool} -> List Bool = 
+  lambda l : List {id:Nat, val:Bool}.
+  if isnil l then nil[Bool]
+  else cons ((head l).val) (extractvals (tail l)) 
+in
+extractvals datalist;;
+
+let compound = {{x=1, y=2}, {x=3, y=4}} in
+(compound.1).y;;
+
+
+let group = {id=1, members=cons "Alice" (cons "Bob" nil[String])} in
+head (group.members);;
+
+
+letrec suma : Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat.
+  if iszero n then m else succ (suma (pred n) m) in
+let pairs = cons {1, 2} (cons {3, 4} nil[{Nat, Nat}]) in
+letrec sumpairs : List {Nat, Nat} -> List Nat =
+  lambda l : List {Nat, Nat}.
+  if isnil l then nil[Nat]
+  else cons (suma ((head l).1) ((head l).2)) (sumpairs (tail l)) 
+in
+sumpairs pairs;;
