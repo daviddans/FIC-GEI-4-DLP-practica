@@ -73,45 +73,45 @@ letrec sum : Nat -> Nat -> Nat =
 lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m) in
 sum 21 34;;
 
-letrec suma : Nat -> Nat -> Nat = lambda m : Nat. lambda n : Nat.
+suma = letrec sum : Nat -> Nat -> Nat = lambda m : Nat. lambda n : Nat.
   if iszero m then n
-  else succ (suma (pred m) n);;
+  else succ (sum (pred m) n) in sum;;
 
-letrec mult : Nat -> Nat -> Nat = lambda m : Nat. lambda n : Nat.
+gmult = letrec mult : Nat -> Nat -> Nat = lambda m : Nat. lambda n : Nat.
   if iszero m then 0
-  else suma n (mult (pred m) n);;
+  else suma n (mult (pred m) n) in mult;;
 
-mult (succ (succ 0)) (succ (succ (succ 0)));;
+gmult (succ (succ 0)) (succ (succ (succ 0)));;
 
-letrec power : Nat -> Nat -> Nat = lambda base : Nat. lambda exp : Nat.
+gpower = letrec power : Nat -> Nat -> Nat = lambda base : Nat. lambda exp : Nat.
   if iszero exp then (succ 0)
-  else mult base (power base (pred exp));;
+  else mult base (power base (pred exp)) in power;;
 
 power (succ (succ 0)) (succ (succ (succ 0)));;
 
-letrec factorial : Nat -> Nat = lambda n : Nat.
+gfact = letrec factorial : Nat -> Nat = lambda n : Nat.
   if iszero n then (succ 0)
-  else mult n (factorial (pred n));;
+  else mult n (factorial (pred n)) in factorial;;
 
-factorial (succ (succ (succ (succ 0))));;
+gfact (succ (succ (succ (succ 0))));;
 
-letrec fib : Nat -> Nat = lambda n : Nat.
+gfib = letrec fib : Nat -> Nat = lambda n : Nat.
   if iszero n then 0
   else if iszero (pred n) then (succ 0)
-  else suma (fib (pred n)) (fib (pred (pred n)));;
+  else suma (fib (pred n)) (fib (pred (pred n))) in fib;;
 
-fib (succ (succ (succ (succ (succ (succ 0))))));;
+gfib (succ (succ (succ (succ (succ (succ 0))))));;
 
-letrec iseven : Nat -> Bool = lambda n : Nat.
+giseven = letrec iseven : Nat -> Bool = lambda n : Nat.
   if iszero n then true
   else if iszero (pred n) then false
-  else iseven (pred (pred n));;
+  else iseven (pred (pred n)) in iseven;;
 
-iseven (succ (succ (succ (succ 0))));;
+giseven (succ (succ (succ (succ 0))));;
 
-iseven (succ (succ (succ (succ (succ 0)))));;
+giseven (succ (succ (succ (succ (succ 0)))));;
 
-let milista = cons 1 (cons 2 (cons 3 nil[Nat]));;
+milista = cons 1 (cons 2 (cons 3 nil[Nat]));;
 
 letrec length : List Nat -> Nat = lambda l : List Nat.
   if isnil l then 0

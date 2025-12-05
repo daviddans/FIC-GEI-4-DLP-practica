@@ -90,7 +90,10 @@ Here we describe the changes made to implement the new funtionalities.
     the consecuent expansion of the lexer and grammar to recongice those produccions.
     Furthermore to implement the logic of the case sentence we neded to once more expand the lexer and parser to recongice these constructions and add a new type TmCase.
     Then we added pattern matching cases in all functions like we did before to fully support this new types.
-    
+    This exaple shows how to define a variant and a value of that variant declared before. Int = <pos:Nat, zero:Bool, neg:Nat>;; p3 = <pos=3> as Int;;
+    In this other example we define and apply a case ( pattern matching ) based function over the previous value :  abs = L i : Int. case i of <pos=p> => (<pos=p> as Int) | <zero=z> => (<zero=true> as Int) | <neg=n> => (<pos=n> as Int);; abs p3 ;;
+
+
 2.7 - Lists
     Support for finite sequences of elements of the same type.
     Syntax: nil[Ty], cons t1 t2, isnil t, head t, tail t.
