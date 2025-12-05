@@ -13,6 +13,7 @@
 %token PRED
 %token ISZERO
 %token LET
+%token LETREC
 %token IN
 %token BOOL
 %token NAT
@@ -24,7 +25,15 @@
 %token COMMA
 %token OR
 %token MINOR
-%token GREATER
+%token GREATER%token LIST
+%token NIL
+%token CONS
+%token ISNIL
+%token HEAD
+%token TAIL
+%token LSQUARE
+%token RSQUARE
+
 %token LPAREN
 %token RPAREN
 %token DOT
@@ -65,6 +74,8 @@ term :
       { TmAbs ($2, $4, $6) }
   | LET IDV EQ term IN term
       { TmLetIn ($2, $4, $6) }
+  | LETREC IDV COLON ty EQ term IN term
+      { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
   | CASE term OF branches
       { TmCase($2, $4) }
 ;
@@ -94,9 +105,17 @@ appTerm :
       { TmProj ($1, $3) }
   | appTerm DOT IDV
       { TmProjVar ($1, $3) }
-  | atomicTerm AS ty
+  |atomicTerm AS ty
       { TmAs ($1, $3) }
-;
+  | CONS atomicTerm atomicTerm
+      { TmCons ($2, $3) }
+  | ISNIL atomicTerm
+      { TmIsNil $2 }
+  | HEAD atomicTerm
+      { TmHead $2 }
+  | TAIL atomicTerm
+      { TmTail $2 }
+    
 
 atomicTerm :
     LPAREN term RPAREN
@@ -120,8 +139,9 @@ atomicTerm :
       { TmTuple $2 }
   | MINOR IDV EQ term GREATER
       { TmVariant ($2, $4) }
+  | NIL LSQUARE ty RSQUARE
+      { TmNil $3 }
 ;
-
 ty :
     atomicTy
       { $1 }
@@ -146,6 +166,8 @@ atomicTy :
       { TyRecord $2 }
   | MINOR variantTy GREATER
       { TyVariant $2 }
+  | LIST atomicTy
+      { TyList $2 }
 ;
 
 variantTy :
@@ -184,11 +206,8 @@ ne_field_types :
 ;
 
 fields :
-  | /* empty */ 
-      { [] }
-  | ne_fields 
-      { $1 }
-;
+  | { [] }
+  | ne_fields { $1 }
 
 ne_fields :
     IDV EQ term 

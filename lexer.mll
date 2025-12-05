@@ -17,6 +17,7 @@ rule token = parse
   | "pred"      { PRED }
   | "iszero"    { ISZERO }
   | "let"       { LET }
+  | "letrec"    { LETREC }  
   | "in"        { IN }
   | "Bool"      { BOOL }
   | "Nat"       { NAT }
@@ -26,6 +27,14 @@ rule token = parse
   | '|'         {OR}
   | '('         { LPAREN }
   | ')'         { RPAREN }
+  | "List"      { LIST }     
+  | "nil"       { NIL }      
+  | "cons"      { CONS }      
+  | "isnil"     { ISNIL }     
+  | "head"      { HEAD }      
+  | "tail"      { TAIL }      
+  | '['         { LSQUARE }   
+  | ']'         { RSQUARE }   
   | '{'         { LBRACE }   
   | '}'         { RBRACE }   
   | ','         { COMMA }    
