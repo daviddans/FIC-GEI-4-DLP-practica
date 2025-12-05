@@ -128,3 +128,9 @@ let lstrings = cons "Hola " (cons "Mundo " (cons "Cruel" nil[String]));;
 let ltuples = cons {10, true} (cons {20, false} (cons {30, true} nil[{Nat, Bool}]));;
 
 let lrecords = cons {id=1, code="A"} (cons {id=2, code="B"} nil[{id:Nat, code:String}]);;
+
+let lstringss = cons "Hola " (cons "Mundo " (cons "Cruel" nil[String])) in lstringss;;
+
+let ltupless = cons {10, true} (cons {20, false} (cons {30, true} nil[{Nat, Bool}])) in ltupless;;
+
+let lrecordss = cons {id=1, code="A"} (cons {id=2, code="B"} nil[{id:Nat, code:String}]) in lrecordss;;
