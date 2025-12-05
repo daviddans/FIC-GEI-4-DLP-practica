@@ -505,6 +505,26 @@ let rec free_vars tm = match tm with
       free_vars t
   | TmTail t ->
       free_vars t
+  | TmVariant (_, t1) ->
+      free_vars t1
+
+  | TmAs (t1, _) ->
+      free_vars t1
+
+  | TmCase (scrut, branches) ->
+      (* free vars of scrutinee union free vars of all branch bodies *)
+      let fv_scrut = free_vars scrut in
+      let fv_branches =
+        List.fold_left
+          (fun acc (_, binder, body) ->
+             (* binder introduces a variable that is bound *)
+             let fv_body = free_vars body in
+             lunion acc (ldif fv_body [binder]))
+          []
+          branches
+      in
+      lunion fv_scrut fv_branches
+
 ;;
 
 let rec fresh_name x l =

@@ -122,7 +122,7 @@ letrec append : List Nat -> List Nat -> List Nat =
 in
 let l1 = cons 1 (cons 2 nil[Nat]) in
 let l2 = cons 3 (cons 4 nil[Nat]) in
-append l1 l2;;
+append l1 l2 ;;
 
 
 letrec map : (Nat -> Nat) -> List Nat -> List Nat =
@@ -137,7 +137,7 @@ map masuno milista;;
 
 letrec suma : Nat -> Nat -> Nat = lambda m : Nat. lambda n : Nat.
   if iszero m then n
-  else succ (suma (pred m) n);;
+  else succ (suma (pred m) n) in suma;;
 
 
 let lstrings = cons "Hola " (cons "Mundo " (cons "Cruel" nil[String]));;
