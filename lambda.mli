@@ -6,6 +6,7 @@ type ty =
   | TyString           (*type string*)
   | TyTuple of ty list (*type tuple*)
   | TyRecord of (string * ty) list  (*type record*)
+  | TyVariant of (string * ty) list    (* type variant *)
 ;;
 
 type context =
@@ -30,6 +31,9 @@ type term =
   | TmProj of term * int      (*term for projections*)
   | TmRecord of (string * term) list  (* pair list (tag, value) *)
   | TmProjVar of term * string       (* projection for tags (string) *)
+  | TmVariant of string * term (*term for variant values*)
+  | TmAs of term * ty (*term for type ascription*)
+  | TmCase of term * (string * string * term) list (*term for pattern matching construcction*)
 ;;
 
 type sentence =

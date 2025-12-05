@@ -16,14 +16,15 @@
 %token IN
 %token BOOL
 %token NAT
+%token AS
 %token STRING            
 %token CONCAT
-
 %token LBRACE
 %token RBRACE
 %token COMMA
-
-
+%token OR
+%token MINOR
+%token GREATER
 %token LPAREN
 %token RPAREN
 %token DOT
@@ -31,6 +32,10 @@
 %token COLON
 %token ARROW
 %token EOF
+
+%token CASE
+%token OF
+%token MATCHARROW
 
 %token <int> INTV
 %token <string> IDV
@@ -44,11 +49,12 @@
 
 s :
     term EOF
-      {Eval $1 }
-    | IDV EQ term EOF
-        {Bind ($1, $3) }
-    | ALS EQ ty EOF 
-        {Alias ($1, $3)}
+      { Eval $1 }
+  | IDV EQ term EOF
+      { Bind ($1, $3) }
+  | ALS EQ ty EOF 
+      { Alias ($1, $3) }
+;
 
 term :
     appTerm
@@ -59,6 +65,17 @@ term :
       { TmAbs ($2, $4, $6) }
   | LET IDV EQ term IN term
       { TmLetIn ($2, $4, $6) }
+  | CASE term OF branches
+      { TmCase($2, $4) }
+;
+
+branches :
+    branch                   { [$1] }
+  | branch OR branches      { $1 :: $3 }
+
+branch :
+    MINOR IDV EQ IDV GREATER MATCHARROW term
+      { ($2, $4, $7) }
 
 appTerm :
     atomicTerm
@@ -77,7 +94,9 @@ appTerm :
       { TmProj ($1, $3) }
   | appTerm DOT IDV
       { TmProjVar ($1, $3) }
-    
+  | atomicTerm AS ty
+      { TmAs ($1, $3) }
+;
 
 atomicTerm :
     LPAREN term RPAREN
@@ -99,12 +118,16 @@ atomicTerm :
       { TmRecord $2 }
   | LBRACE tupleTerm RBRACE
       { TmTuple $2 }
+  | MINOR IDV EQ term GREATER
+      { TmVariant ($2, $4) }
+;
 
 ty :
     atomicTy
       { $1 }
   | atomicTy ARROW ty
       { TyArr ($1, $3) }
+;
 
 atomicTy :
     LPAREN ty RPAREN
@@ -116,41 +139,60 @@ atomicTy :
   | STRING          
       { TyString }
   | ALS
-        { TyAlias $1 }  
+      { TyAlias $1 }  
   | LBRACE tupleType RBRACE
       { TyTuple $2 }
   | LBRACE field_types RBRACE
       { TyRecord $2 }
+  | MINOR variantTy GREATER
+      { TyVariant $2 }
+;
 
+variantTy :
+    IDV COLON ty
+      { [($1, $3)] }
+  | IDV COLON ty COMMA variantTy
+      { ($1, $3) :: $5 }
+;
 
 tupleType :
     ty
       { [$1] }
   | ty COMMA tupleType
       { $1 :: $3 }
+;
 
 tupleTerm :
     term
       { [$1] }
   | term COMMA tupleTerm
       { $1 :: $3 }
+;
 
 field_types :
-  | { [] }
-  | ne_field_types { $1 }
+  | /* empty */ 
+      { [] }
+  | ne_field_types 
+      { $1 }
+;
 
 ne_field_types :
-  | IDV COLON ty 
+    IDV COLON ty 
       { [($1, $3)] }
   | IDV COLON ty COMMA ne_field_types 
       { ($1, $3) :: $5 }
+;
 
 fields :
-  | /* vacío */ { [] }
-  | ne_fields { $1 }
+  | /* empty */ 
+      { [] }
+  | ne_fields 
+      { $1 }
+;
 
 ne_fields :
-  | IDV EQ term 
+    IDV EQ term 
       { [($1, $3)] }
   | IDV EQ term COMMA ne_fields 
       { ($1, $3) :: $5 }
+;

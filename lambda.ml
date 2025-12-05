@@ -9,7 +9,9 @@ type ty =
   | TyString           (*type string*)
   | TyTuple of ty list (*type tuple*)
   | TyRecord of (string * ty) list  (*type record*)
+  | TyVariant of (string * ty) list    (* type variant *)
 ;;
+
 
 type context =
   (string * ty) list
@@ -27,12 +29,15 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
-  | TmString of string        (*type string*)
-  | TmConcat of term * term   (*concat operator*)
+  | TmString of string        (*term string*)
+  | TmConcat of term * term   (*concat operator *)
   | TmTuple of term list      (*term for tuples*)
   | TmProj of term * int      (*term for projections*)
   | TmRecord of (string * term) list  (* pair list (tag, value) *)
   | TmProjVar of term * string       (* projection for tags (string) *)
+  | TmVariant of string * term (*term for variant values*)
+  | TmAs of term * ty (*term for type ascription*)
+  | TmCase of term * (string * string * term) list (*term for pattern matching construcction*)
 ;;
 
 type sentence =
@@ -76,16 +81,6 @@ let rec getglobal gctx name =
 
 (* TYPE MANAGEMENT (TYPING) *)
 
-let rec string_of_ty ty = match ty with
-    TyBool ->
-      "Bool"
-  | TyNat ->
-      "Nat"
-  | TyString ->        (* type string match *)
-      "String"
-  | TyArr (ty1, ty2) ->
-      "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
-;;
 
 let string_of_ty ty =
   let rec aux nest t = (*Aux func to give proper nesting parenthesis*)
@@ -106,6 +101,10 @@ let string_of_ty ty =
     | TyRecord fields ->
         let f (l, t) = l ^ ":" ^ aux 0 t in
         "{" ^ String.concat ", " (List.map f fields) ^ "}"
+    | TyVariant fields ->
+        let f (l, t) = l ^ " : " ^ aux 0 t in
+        "<" ^ String.concat ", " (List.map f fields) ^ ">"
+  
   in
   aux 0 ty
 ;;
@@ -205,7 +204,71 @@ let rec typeof ctx tm = match tm with
               with Not_found -> raise (Type_error ("label " ^ l ^ " not found")))
          | _ -> 
              raise (Type_error "Expected record type"))  
-    
+             
+  (* Bare variant: we force the user to always write `<tag=v> as SomeVariantType` *)
+  | TmVariant (_, _) ->
+      raise (Type_error "bare variant must be annotated with `as`")
+
+  (* Ascription *)
+  | TmAs (v, asTy) ->
+      begin match v, asTy with
+      (* Special case: variant value ascribed with a variant type *)
+      | TmVariant (lbl, t1), TyVariant field_tys ->
+          (* 1) the label must exist in the variant type *)
+          let field_ty =
+            try List.assoc lbl field_tys
+            with Not_found ->
+              raise (Type_error ("unknown variant tag " ^ lbl))
+          in
+          (* 2) the payload must have the right type *)
+          let ty_payload = typeof ctx t1 in
+          if ty_payload = field_ty then asTy
+          else
+            raise (Type_error "variant payload type does not match its tag type")
+
+      (* General ascription: expression type must match ascribed type *)
+      | _, _ ->
+          let tyV = typeof ctx v in
+          if tyV = asTy then asTy
+          else raise (Type_error "ascribed type mismatch")
+      end
+
+  (* T-Case: pattern matching on variants *)
+  | TmCase (scrut, branches) ->
+      (* compute scrutinee type *)
+      let ty_scrut = typeof ctx scrut in
+
+      (* ensure scrutinee is a variant *)
+      let field_tys =
+        match ty_scrut with
+        | TyVariant fts -> fts
+        | _ -> raise (Type_error "case expression applied to non-variant value")
+      in
+      (* check each branch produces same type *)
+      let branch_types =
+        List.map
+          (fun (lbl, binder, body) ->
+            (* 1) label must exist in variant type *)
+            let ty_arg =
+              try List.assoc lbl field_tys
+              with Not_found ->
+                raise (Type_error ("unknown case label " ^ lbl))
+            in
+            (* 2) type check body under binder typing *)
+            let ctx' = addbinding ctx binder ty_arg in
+            typeof ctx' body
+          )
+          branches
+      in
+      (* 3) ensure all branch types identical *)
+      (match branch_types with
+       | [] -> raise (Type_error "empty case expression")
+       | ty1 :: rest ->
+           List.iter
+             (fun ty -> if ty <> ty1 then
+                 raise (Type_error "case branches produce different types"))
+               rest;
+           ty1)
 ;;
 
 (* TERMS MANAGEMENT (EVALUATION) *)
@@ -264,6 +327,19 @@ let string_of_term tm =
           "{" ^ String.concat ", " (List.map f fields) ^ "}"
       | TmProjVar (t, l) ->
           aux 2 t ^ "." ^ l
+      | TmVariant (tag, v) ->
+          "<" ^ tag ^ " = " ^ aux 0 v ^ ">"
+
+      | TmAs (t1, ty) ->
+          aux 0 t1 ^ " as " ^ string_of_ty ty
+
+      | TmCase (scrut, branches) ->
+          let branch_to_str (lbl, x, body) =
+            "<" ^ lbl ^ "=" ^ x ^ "> => " ^ aux 0 body
+          in
+          "case " ^ aux 0 scrut ^ " of "
+          ^ String.concat " | " (List.map branch_to_str branches)
+
     in
     (* add parentheses only when nested *)
     if nest > 0 then "(" ^ s ^ ")" else s
@@ -374,6 +450,26 @@ let rec subst x s tm = match tm with
       TmRecord (List.map (fun (l, t) -> (l, subst x s t)) fields)
   | TmProjVar (t, l) ->
       TmProjVar (subst x s t, l)
+  (*Substitution in variants*)
+  | TmVariant (lbl, v1) ->
+      TmVariant(lbl, subst x s v1)
+  (*Substitution in ascriptions*)
+  | TmAs (v, ty) ->
+      TmAs(subst x s v, ty)
+  (*Substitution in case statements*)
+  | TmCase (scrut, branches) ->
+      let scrut' = subst x s scrut in
+      let branches' =
+        List.map
+          (fun (lbl, binder, body) ->
+            if binder = x then
+              (lbl, binder, body)   (* binder shadows variable *)
+            else
+              (lbl, binder, subst x s body))
+          branches
+      in
+      TmCase(scrut', branches')
+
 ;;
 
 let rec isnumericval tm = match tm with
@@ -390,8 +486,10 @@ let rec isval tm = match tm with
   | t when isnumericval t -> true
   (* Case: A tuple is a value if all its elements are values *)
   | TmTuple l -> List.for_all isval l
-
   | TmRecord fields -> List.for_all (fun (_, t) -> isval t) fields
+  | TmVariant (_, v) -> isval v       (* variant is value if its payload is value *)
+  | TmAs (v, _) -> isval v            (* ascription is value when underlying term is value *)
+
   | _ -> false
 ;;
 
@@ -526,6 +624,32 @@ let rec eval1 tm = match tm with
         in
         TmRecord (eval_fields fields)
 
+  (* E-Variant: evaluate inside variant *)
+  | TmVariant (lbl, v) when not (isval v) ->
+      let v' = eval1 v in
+      TmVariant(lbl, v')
+
+  (* E-As: evaluate term under ascription *)
+  | TmAs (v, ty) when not (isval v) ->
+      let v' = eval1 v in
+      TmAs(v', ty)
+
+  (* E-Case: evaluate scrutinee *)
+  | TmCase (scrut, branches) when not (isval scrut) ->
+      let scrut' = eval1 scrut in
+      TmCase(scrut', branches)
+
+  (* E-CaseMatch *)
+  | TmCase (TmAs (TmVariant(lbl, v), ty), branches)
+    when isval v ->
+      (* find matching branch *)
+      let (_, binder, body) =
+        try List.find (fun (l, _, _) -> l = lbl) branches
+        with Not_found -> raise NoRuleApplies
+      in
+      subst binder v body
+
+
   | _ ->
       raise NoRuleApplies
 ;;
@@ -565,9 +689,9 @@ let expand_globals gctx tm =
     | TmConcat(t1, t2) ->
         TmConcat(aux bound t1, aux bound t2)
 
-    | TmSucc t1    -> TmSucc(aux bound t1)
-    | TmPred t1    -> TmPred(aux bound t1)
-    | TmIsZero t1  -> TmIsZero(aux bound t1)
+    | TmSucc t1 -> TmSucc(aux bound t1)
+    | TmPred t1 -> TmPred(aux bound t1)
+    | TmIsZero t1 -> TmIsZero(aux bound t1)
 
     | TmTuple xs ->
         TmTuple(List.map (aux bound) xs)
@@ -581,15 +705,26 @@ let expand_globals gctx tm =
     | TmProjVar(t1, l) ->
         TmProjVar(aux bound t1, l)
 
-    (* Base cases, leave untouched *)
-    | TmTrue | TmFalse | TmZero | TmString _ -> t
+    | TmVariant(lbl, v) ->
+        TmVariant(lbl, aux bound v)
+
+    | TmAs(v, ty) ->
+        TmAs(aux bound v, ty)
+
+    | TmCase(scrut, branches) ->
+        TmCase(aux bound scrut,
+               List.map
+                 (fun (lbl, binder, body) -> (lbl, binder, aux bound body))
+                 branches)
+
+    (* Base terms *)
+    | TmTrue | TmFalse | TmZero | TmString _ ->
+        t
   in
   aux [] tm
 
-(* Fully expands type aliases inside a term *)
-(* Fully expands type aliases inside a term *)
+  (* Fully expands type aliases inside a term *)
 let expand_aliases gctx tm =
-  (* helper for types *)
   let rec expand_ty t =
     match t with
     | TyAlias name ->
@@ -602,10 +737,10 @@ let expand_aliases gctx tm =
         TyTuple (List.map expand_ty ts)
     | TyRecord fields ->
         TyRecord (List.map (fun (l, ty) -> (l, expand_ty ty)) fields)
+    | TyVariant fields ->
+        TyVariant (List.map (fun (l, ty) -> (l, expand_ty ty)) fields)
     | _ -> t
   in
-
-  (* walk term *)
   let rec aux t =
     match t with
     | TmAbs(x, ty, body) ->
@@ -626,20 +761,29 @@ let expand_aliases gctx tm =
     | TmConcat(t1, t2) -> TmConcat(aux t1, aux t2)
 
     | TmTuple xs ->
-        TmTuple (List.map aux xs)
+        TmTuple(List.map aux xs)
 
     | TmProj(t1, i) ->
         TmProj(aux t1, i)
 
     | TmRecord fields ->
-        TmRecord (List.map (fun (l,t) -> (l, aux t)) fields)
+        TmRecord(List.map (fun (l,t) -> (l, aux t)) fields)
 
     | TmProjVar(t1, l) ->
         TmProjVar(aux t1, l)
 
-    (* base terms remain unchanged *)
-    | (TmVar _ | TmTrue | TmFalse | TmZero | TmString _) ->
+    | TmVariant(lbl, t1) ->
+        TmVariant(lbl, aux t1)
+
+    | TmAs(v, ty) ->
+        TmAs(aux v, expand_ty ty)
+
+    | TmCase(scrut, branches) ->
+        TmCase(aux scrut,
+               List.map (fun (lbl,binder,body) ->
+                            (lbl,binder, aux body)) branches)
+
+    | TmVar _ | TmTrue | TmFalse | TmZero | TmString _ ->
         t
   in
-
   aux tm

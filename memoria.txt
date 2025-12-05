@@ -9,9 +9,34 @@ Here we describe how the new interpret functions work.
                             if iszero a 
                             then true
                             else false ;;
+
 1.2 - The output of the types now is more clear
+
+2.2 - Now we can define global variables like this: x = 5;; and it will store the value 5 : Nat. We can also store expresions, furthermore we can use 
+    local definitions inside those expresions without problem. For example the definition x = L x:Nat . succ x ;; will evaluate like lambda x:Nat. succ (x) : Nat -> Nat.
+    Aliases of types can be defined in the same way, just notice they have to start with capital, otherwise it wont be recogniced by the grammar.
+    N = Nat;; can be declared and then used in any expresion like L x:N . succ x. N = Nat;; and then M = N;; is valid too and M will have the type Nat.
+
 2.3 - There is a new type String. Now values like "Hello world" are recogniced and functions can be defined with String too.
     There is a new operator ^ to concadenate two strings.
+
+2.6 - Variants can now be defined. In this example we see how to declarate a new variant give it an alias, store a value of this variant. And use pattern matching over it.
+    Int = <pos:Nat, zero:Bool, neg:Nat>;;
+    p3 = <pos=3> as Int;;
+    z0 = <zero=true> as Int;;
+    abs = L i : Int.
+        case i of
+        <pos=p> => (<pos=p> as Int)
+        | <zero=z> => (<zero=true> as Int)
+        | <neg=n> => (<pos=n> as Int) ;;
+    abs p3;;
+
+    This other example gives the asked function add.
+    Int = <pos:Nat, zero:Bool, neg:Nat>;;
+    add = let sum = L a1:Int . L a2:Int . <pos=3> as Int in sum;;
+    
+_____________________________________________________________________
+
 
 Technical Guide.
 Here we describe the changes made to implement the new funtionalities.
@@ -23,12 +48,21 @@ Here we describe the changes made to implement the new funtionalities.
 
 2.2 - We implement global definitions through a new context. This lives as an argument in the main loop, and has a type global_contex,
     this is a list of global_entry types, that could either be a term or an alias (This is very similar to the old context for resolving types of local variables).
-    Then in the main we use the funtion expand_globals to expand those in the term that stores so  we can then evaluate the full expresion.
-    In order to allow declarations we change the type of the S producction in the grammar to a new type sentence that has 3 constructors, 
+    Then in the main we use the funtion expand_globals to expand those in the term that stores so  we can then evaluate the full expresion, the same goes for
+    the aliases with expand_aliases and expand_ty.
+    In order to allow global declarations we change the type of the S producction in the grammar to a new type sentence that has 3 constructors, 
     one for terms, other for declarations, and other for aliases eachone with its corresponding grammar rule. Then we can use pattern-matching 
     in the main loop to either evaluate a expresion or declarate a new bind or alias.
     One important note is that we create a new token for names starting in capital for the aliases, so any alias of a type MUST start with capital.
+    We had also needed to expand the grammar to allow ALS (alias) be in the ty construction so we can use our alias as types.
 
 2.3 - Added a new type "String" in the lamda.ml and .mli. A new term for the operator concat, and added a new token
     in the parser to recognice de concat operator symbol "^", a new token for the keyword String to represent the string type
      and a new token to recognice words in quotes as strings. Also with the tokens, the corresponding lexical and gramatical rules were included.
+
+2.6 - Added suport for variants. First of all we updated the lexer and parser to recognice the construction of a variant, as well as a type to represent this in our
+    lambda code. Since we aldeady suport aliases in a previous step we'll take advantage of that, so declaring a new variant type and give it a name will be straightforward.
+    We neded to make a new term as to make unambiguos declaration of variants, since could be superposition in tag names betwen two difrent variants. This implied
+    the consecuent expansion of the lexer and grammar to recongice those produccions.
+    Furthermore to implement the logic of the case sentence we neded to once more expand the lexer and parser to recongice these constructions and add a new type TmCase.
+    Then we added pattern matching cases in all functions like we did before to fully support this new types.

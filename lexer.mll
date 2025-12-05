@@ -20,18 +20,22 @@ rule token = parse
   | "in"        { IN }
   | "Bool"      { BOOL }
   | "Nat"       { NAT }
+  | "as"      {AS}
+  | "case"  {CASE}
+  | "of"      {OF}
+  | '|'         {OR}
   | '('         { LPAREN }
   | ')'         { RPAREN }
-
-  (* tokens for tuples *)
   | '{'         { LBRACE }   
   | '}'         { RBRACE }   
   | ','         { COMMA }    
-
+  |'<'      {MINOR}
+  |'>'      {GREATER}
   | '.'         { DOT }
   | '='         { EQ }
   | ':'         { COLON }
   | "->"        { ARROW }
+  | "=>"    {MATCHARROW}
   | "String"    { STRING }    
   | "^"    { CONCAT }    
   | ['0'-'9']+  { INTV (int_of_string (Lexing.lexeme lexbuf)) }
